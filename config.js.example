@@ -68,4 +68,18 @@ module.exports = {
     'https://t.co/', // Twitter shortlink
     'direct' // Ketikan URL langsung
   ],
+
+  // Probabilitas bot akan mencari text input dan mengetik secara acak (0.10 = 10%)
+  MICRO_TYPING_CHANCE: 0.10,
+
+  // Distribusi kecepatan membaca dan durasi stay di halaman:
+  // - skimmer: 10-20 detik
+  // - average: 30-60 detik
+  // - slow: 60-120 detik (atau lebih)
+  // Total persentase harus 1.0 (100%)
+  READING_PACE_DISTRIBUTION: {
+    skimmer: 0.30,   // 30% pengunjung cabut cepet
+    average: 0.60,   // 60% membaca normal
+    slow: 0.10       // 10% lama banget
+  }
 };

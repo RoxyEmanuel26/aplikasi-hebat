@@ -14,7 +14,7 @@ const { spoofCanvasWebGLAudio } = require('./anti-detect/canvas');
 const { randomTimezone, injectTimezone, setAcceptLanguage } = require('./anti-detect/timezone');
 const { injectCookies } = require('./anti-detect/cookies');
 const { getProxyAuth } = require('./proxy/proxyManager');
-const { performCookieWarming, simulateReading, clickInternalLink } = require('./utils/behaviors');
+const { performCookieWarming, simulateReading, clickInternalLink, simulateMicroTyping, applyReadingPacing } = require('./utils/behaviors');
 
 // Dynamically import ghost-cursor (ESM module)
 let createCursor;
@@ -135,9 +135,15 @@ async function runTask({ page, data }) {
             window.scrollBy({ top: px, left: 0, behavior: 'smooth' });
         }, scrollAmount);
 
+        // 14. Phase 4: Probabilitas melakukan pergerakan Micro Typing di text box.
+        if (Math.random() < config.MICRO_TYPING_CHANCE) {
+            await simulateMicroTyping(page, cursor);
+        }
+
+        // 15. Tunggu idle natural
         await humanDelay();
 
-        // 14. Jika HOMEPAGE_URL diset, lakukan Internal Routing page views sebelum klik iklan
+        // 16. Jika HOMEPAGE_URL diset, lakukan Internal Routing page views sebelum klik iklan
         if (config.HOMEPAGE_URL && config.HOMEPAGE_URL !== config.TARGET_URL) {
             // Coba klik internal link (halaman kedua)
             const clickedInternal = await clickInternalLink(page, cursor, new URL(config.HOMEPAGE_URL).hostname);
@@ -155,10 +161,13 @@ async function runTask({ page, data }) {
             await humanDelay();
         }
 
-        // 15. Tunggu banner muncul
+        // 17. Phase 4: Terapkan dynamic reading pacing sblm interaksi click banner
+        await applyReadingPacing(config.READING_PACE_DISTRIBUTION);
+
+        // 18. Tunggu banner muncul
         await page.waitForSelector(config.BANNER_SELECTOR, { timeout: 15000 });
 
-        // 16. Logika CTR: Hanya klik jika random <= CTR_TARGET
+        // 19. Logika CTR: Hanya klik jika random <= CTR_TARGET
         const shouldClick = Math.random() <= config.CTR_TARGET;
 
         if (shouldClick) {
@@ -168,6 +177,18 @@ async function runTask({ page, data }) {
                 const bannerElements = await page.$$(config.BANNER_SELECTOR);
                 if (bannerElements.length > 0) {
                     const randomBanner = bannerElements[Math.floor(Math.random() * bannerElements.length)];
+
+                    // Phase 4: Hesitation / Mouse Wiggle
+                    // overshoot kursor (gerak lewatin target), lalau diam sebentar
+                    const box = await randomBanner.boundingBox();
+                    if (box) {
+                        const overshootX = box.x + box.width + 50 + Math.random() * 40;
+                        const overshootY = box.y + box.height / 2;
+                        await cursor.moveTo({ x: overshootX, y: overshootY });
+                        await humanDelay(300, 800); // ragu 0.5 detik
+                    }
+
+                    // Move click aktual
                     await cursor.click(randomBanner);
                     await humanDelay(3000, 5000); // Tunggu bentar abis diklik
                 }
