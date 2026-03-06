@@ -185,7 +185,7 @@ async function runTask({ page, data }) {
         if (shouldClick) {
             console.log(`     -> [ACTION] Visit #${visitId} MENGKLIK BANNER! (CTR Mode)`);
             try {
-                // Pilih secara acak dari semua banner yang match selector
+                // Pilih secara acak dari semua banner iframe yang match selector
                 const bannerElements = await page.$$(config.BANNER_SELECTOR);
                 if (bannerElements.length > 0) {
                     const randomBanner = bannerElements[Math.floor(Math.random() * bannerElements.length)];
@@ -199,18 +199,34 @@ async function runTask({ page, data }) {
                         await humanDelay(300, 800); // ragu 0.5 detik
                     }
 
-                    // Move click aktual
-                    await cursor.click(randomBanner);
+                    // Ambil parent wrapper di luar iframe (karena iframe cross-origin tidak bisa diklik langsung)
+                    const parentWrapper = await randomBanner.evaluateHandle(
+                        el => el.closest('.w-full') || el.closest('aside') || el.parentElement
+                    );
+
+                    // Klik parent wrapper dengan ghost-cursor
+                    await cursor.click(parentWrapper);
                     await humanDelay(3000, 5000); // Tunggu bentar abis diklik
+
+                    // Dispose handle untuk mencegah memory leak
+                    await parentWrapper.dispose();
                 }
             } catch (cursorErr) {
-                // Fallback ke click biasa jika ghost-cursor gagal
+                // Fallback ke click koordinat tengah wrapper jika ghost-cursor gagal
                 console.warn(`[Visit #${visitId}] Ghost-cursor fallback: ${cursorErr.message}`);
                 await page.evaluate((selector) => {
                     const elements = document.querySelectorAll(selector);
-                    if (elements.length > 0) {
-                        elements[Math.floor(Math.random() * elements.length)].click();
-                    }
+                    if (elements.length === 0) return;
+
+                    const randomEl = elements[Math.floor(Math.random() * elements.length)];
+                    const wrapper = randomEl.closest('.w-full') || randomEl.closest('aside') || randomEl.parentElement;
+                    if (!wrapper) return;
+
+                    const rect = wrapper.getBoundingClientRect();
+                    const clickX = rect.left + rect.width / 2;
+                    const clickY = rect.top + rect.height / 2;
+                    const targetEl = document.elementFromPoint(clickX, clickY);
+                    if (targetEl) targetEl.click();
                 }, config.BANNER_SELECTOR);
             }
         } else {
