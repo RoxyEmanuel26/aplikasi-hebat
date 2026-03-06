@@ -15,6 +15,7 @@ const { randomTimezone, injectTimezone, setAcceptLanguage } = require('./anti-de
 const { injectCookies } = require('./anti-detect/cookies');
 const { getProxyAuth } = require('./proxy/proxyManager');
 const { performCookieWarming, simulateReading, clickInternalLink, simulateMicroTyping, applyReadingPacing } = require('./utils/behaviors');
+const { createPopunderHandler, removePopunderHandler } = require('./utils/popunderHandler');
 
 // Dynamically import ghost-cursor (ESM module)
 let createCursor;
@@ -38,6 +39,10 @@ async function runTask({ page, data }) {
 
     console.log(`[Task] Visit #${visitId} berjalan menggunakan proxy: ${targetHostPort}`);
 
+    // Variabel popunder handler (akan di-cleanup di finally)
+    let popunderHandler = null;
+    let getPopunderCount = () => 0;
+
     try {
         // 1. Authenticate proxy (Penting: Lakukan authenticate SEBELUM page.goto dipanggil)
         try {
@@ -50,7 +55,15 @@ async function runTask({ page, data }) {
             throw new Error('Proxy Authentication Failed');
         }
 
-        // 2. Set viewport acak
+        // 2. Pasang Popunder Handler (setelah auth, sebelum navigasi pertama)
+        if (config.POPUNDER_ENABLED) {
+            const browser = page.browser();
+            const popunder = createPopunderHandler(browser, visitId, config);
+            popunderHandler = popunder.handler;
+            getPopunderCount = popunder.getCount;
+        }
+
+        // 3. Set viewport acak
         await page.setViewport({
             width: viewport.width,
             height: viewport.height,
@@ -58,7 +71,7 @@ async function runTask({ page, data }) {
             isMobile: viewport.isMobile,
         });
 
-        // 3. Inject fingerprint unik
+        // 4. Inject fingerprint unik
         try {
             const fingerprint = generateFingerprint();
             await injectFingerprint(page, fingerprint);
@@ -66,14 +79,14 @@ async function runTask({ page, data }) {
             console.warn(`[Visit #${visitId}] Fingerprint warning: ${err.message}`);
         }
 
-        // 4. Spoof canvas/WebGL/audio
+        // 5. Spoof canvas/WebGL/audio
         try {
             await spoofCanvasWebGLAudio(page);
         } catch (err) {
             console.warn(`[Visit #${visitId}] Canvas spoof warning: ${err.message}`);
         }
 
-        // 5. Set timezone & Accept-Language
+        // 6. Set timezone & Accept-Language
         try {
             await injectTimezone(page, tzInfo.timezone);
             await setAcceptLanguage(page, tzInfo.acceptLanguage);
@@ -81,7 +94,7 @@ async function runTask({ page, data }) {
             console.warn(`[Visit #${visitId}] Timezone warning: ${err.message}`);
         }
 
-        // 6. Set Referer header dari list acak di config
+        // 7. Set Referer header dari list acak di config
         const selectedReferer = config.REFERERS[Math.floor(Math.random() * config.REFERERS.length)];
         const headersToSet = {
             'Accept-Language': tzInfo.acceptLanguage,
@@ -92,7 +105,7 @@ async function runTask({ page, data }) {
         }
         await page.setExtraHTTPHeaders(headersToSet);
 
-        // 7. Inject cookies natural
+        // 8. Inject cookies natural
         try {
             await injectCookies(page);
         } catch (err) {
@@ -106,44 +119,43 @@ async function runTask({ page, data }) {
         }
         const cursor = createCursor(page);
 
-        // 8. Lakukan Cookie Warming
+        // 9. Lakukan Cookie Warming
         try {
             await performCookieWarming(page, config.WARMING_URLS, cursor);
         } catch (wErr) {
             /* ignore */
         }
 
-        // 9. Catat waktu mulai navigasi target
+        // 10. Catat waktu mulai navigasi target
         const navStart = Date.now();
 
-        // 10. Navigasi ke target
-
+        // 11. Navigasi ke target
         await page.goto(config.HOMEPAGE_URL || config.TARGET_URL, {
             waitUntil: 'domcontentloaded',
             timeout: 25000,
         });
 
-        // 11. Tunggu mediumDelay — simulasi membaca halaman
+        // 12. Tunggu mediumDelay — simulasi membaca halaman
         await mediumDelay();
 
-        // 12. Micro-interaction: Simulate reading & Highlighting text
+        // 13. Micro-interaction: Simulate reading & Highlighting text
         await simulateReading(page, cursor);
 
-        // 13. Scroll ke bawah 200–500px secara natural
+        // 14. Scroll ke bawah 200–500px secara natural
         const scrollAmount = Math.floor(Math.random() * 300) + 200;
         await page.evaluate((px) => {
             window.scrollBy({ top: px, left: 0, behavior: 'smooth' });
         }, scrollAmount);
 
-        // 14. Phase 4: Probabilitas melakukan pergerakan Micro Typing di text box.
+        // 15. Phase 4: Probabilitas melakukan pergerakan Micro Typing di text box.
         if (Math.random() < config.MICRO_TYPING_CHANCE) {
             await simulateMicroTyping(page, cursor);
         }
 
-        // 15. Tunggu idle natural
+        // 16. Tunggu idle natural
         await humanDelay();
 
-        // 16. Jika HOMEPAGE_URL diset, lakukan Internal Routing page views sebelum klik iklan
+        // 17. Jika HOMEPAGE_URL diset, lakukan Internal Routing page views sebelum klik iklan
         if (config.HOMEPAGE_URL && config.HOMEPAGE_URL !== config.TARGET_URL) {
             // Coba klik internal link (halaman kedua)
             const clickedInternal = await clickInternalLink(page, cursor, new URL(config.HOMEPAGE_URL).hostname);
@@ -161,13 +173,13 @@ async function runTask({ page, data }) {
             await humanDelay();
         }
 
-        // 17. Phase 4: Terapkan dynamic reading pacing sblm interaksi click banner
+        // 18. Phase 4: Terapkan dynamic reading pacing sblm interaksi click banner
         await applyReadingPacing(config.READING_PACE_DISTRIBUTION);
 
-        // 18. Tunggu banner muncul
+        // 19. Tunggu banner muncul
         await page.waitForSelector(config.BANNER_SELECTOR, { timeout: 15000 });
 
-        // 19. Logika CTR: Hanya klik jika random <= CTR_TARGET
+        // 20. Logika CTR: Hanya klik jika random <= CTR_TARGET
         const shouldClick = Math.random() <= config.CTR_TARGET;
 
         if (shouldClick) {
@@ -179,7 +191,6 @@ async function runTask({ page, data }) {
                     const randomBanner = bannerElements[Math.floor(Math.random() * bannerElements.length)];
 
                     // Phase 4: Hesitation / Mouse Wiggle
-                    // overshoot kursor (gerak lewatin target), lalau diam sebentar
                     const box = await randomBanner.boundingBox();
                     if (box) {
                         const overshootX = box.x + box.width + 50 + Math.random() * 40;
@@ -206,10 +217,16 @@ async function runTask({ page, data }) {
             console.log(`     -> [ACTION] Visit #${visitId} Impression Organik (Skip Banner)`);
         }
 
-        // 17. Catat response time
+        // 21. Tunggu popunder selesai diproses (beri waktu handler menyelesaikan simulasi)
+        if (config.POPUNDER_ENABLED && getPopunderCount() > 0) {
+            console.log(`     -> [Popunder #${visitId}] Menunggu ${getPopunderCount()} popunder selesai diproses...`);
+            await humanDelay(2000, 4000);
+        }
+
+        // 22. Catat response time
         responseTime = Date.now() - navStart;
 
-        // 17. Screenshot jika diaktifkan
+        // 23. Screenshot jika diaktifkan
         if (config.SCREENSHOT_ENABLED) {
             const fs = require('fs');
             const path = require('path');
@@ -226,9 +243,15 @@ async function runTask({ page, data }) {
         status = 'FAIL';
         errorMsg = err.message || 'Unknown error';
         responseTime = Date.now() - startTime;
+    } finally {
+        // KRITIS: Bersihkan popunder handler untuk mencegah memory leak
+        if (popunderHandler) {
+            const browser = page.browser();
+            removePopunderHandler(browser, popunderHandler);
+        }
     }
 
-    // 18. Log hasil ke CSV via logger
+    // 24. Log hasil ke CSV via logger (termasuk popunder count)
     logVisit({
         visitId,
         responseTime,
@@ -236,6 +259,7 @@ async function runTask({ page, data }) {
         viewport: viewport.label,
         status,
         error: errorMsg,
+        popunderCount: getPopunderCount(),
     });
 }
 

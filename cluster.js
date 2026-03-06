@@ -38,6 +38,8 @@ async function createCluster(puppeteer) {
             headless: config.HEADLESS ? 'new' : false,
             args: [
                 '--no-sandbox',
+                '--disable-popup-blocking',
+                '--disable-notifications',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-blink-features=AutomationControlled',
@@ -76,8 +78,8 @@ async function createCluster(puppeteer) {
         // Retry otomatis jika instance gagal
         retryLimit: 2,
 
-        // Timeout 30 detik per task
-        timeout: 30000,
+        // Timeout 120 detik per task (diperpanjang untuk akomodasi reading pacing + popunder)
+        timeout: 120000,
 
         // Monitor events
         monitor: false,

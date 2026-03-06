@@ -81,5 +81,18 @@ module.exports = {
     skimmer: 0.30,   // 30% pengunjung cabut cepet
     average: 0.60,   // 60% membaca normal
     slow: 0.10       // 10% lama banget
-  }
+  },
+
+  // ========== POPUNDER CONFIG ==========
+  // Aktifkan simulasi impresi popunder
+  POPUNDER_ENABLED: true,
+
+  // Delay minimum sebelum menutup tab popunder (ms)
+  POPUNDER_MIN_DELAY: 2000,
+
+  // Delay maksimum sebelum menutup tab popunder (ms)
+  POPUNDER_MAX_DELAY: 5000,
+
+  // Maksimal berapa tab popunder yang boleh terbuka sekaligus per instance
+  POPUNDER_MAX_TABS: 3,
 };

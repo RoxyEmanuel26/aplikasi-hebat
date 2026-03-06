@@ -17,7 +17,7 @@ if (!fs.existsSync(LOG_DIR)) {
 
 // Tulis header CSV jika file belum ada
 if (!fs.existsSync(LOG_FILE)) {
-    fs.writeFileSync(LOG_FILE, 'visit_id,timestamp,response_time_ms,proxy_used,viewport,status\n', 'utf-8');
+    fs.writeFileSync(LOG_FILE, 'visit_id,timestamp,response_time_ms,proxy_used,viewport,status,popunder_count\n', 'utf-8');
 }
 
 // Buffer untuk menyimpan semua hasil (untuk summary)
@@ -32,28 +32,30 @@ const results = [];
  * @param {string} entry.viewport - Label viewport (contoh: "1920x1080")
  * @param {string} entry.status - "OK" atau "FAIL"
  * @param {string} [entry.error] - Pesan error jika status FAIL
+ * @param {number} [entry.popunderCount] - Jumlah popunder terdeteksi
  */
 function logVisit(entry) {
-    const { visitId, responseTime, proxy, viewport, status, error } = entry;
+    const { visitId, responseTime, proxy, viewport, status, error, popunderCount } = entry;
     const timestamp = new Date().toISOString();
     const icon = status === 'OK' ? '✅' : '❌';
+    const popCount = popunderCount || 0;
 
     // Console output
     if (status === 'OK') {
         console.log(
-            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime}ms | Viewport: ${viewport} | Status: ${icon} OK`
+            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime}ms | Popunder: ${popCount} | Viewport: ${viewport} | Status: ${icon} OK`
         );
     } else {
         console.log(
-            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime || '-'}ms | Viewport: ${viewport} | Status: ${icon} FAIL | ${error || 'Unknown error'}`
+            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime || '-'}ms | Popunder: ${popCount} | Viewport: ${viewport} | Status: ${icon} FAIL | ${error || 'Unknown error'}`
         );
     }
 
     // Simpan ke buffer
-    results.push({ visitId, timestamp, responseTime: responseTime || 0, proxy, viewport, status });
+    results.push({ visitId, timestamp, responseTime: responseTime || 0, proxy, viewport, status, popunderCount: popCount });
 
     // Append ke CSV
-    const csvLine = `${visitId},${timestamp},${responseTime || 0},${proxy},${viewport},${status}\n`;
+    const csvLine = `${visitId},${timestamp},${responseTime || 0},${proxy},${viewport},${status},${popCount}\n`;
     fs.appendFileSync(LOG_FILE, csvLine, 'utf-8');
 }
 
