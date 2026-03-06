@@ -46,4 +46,26 @@ module.exports = {
 
   // Homepage URL (jika berbeda dari TARGET_URL, navigasi ke sini dulu)
   HOMEPAGE_URL: 'https://roxy.my.id',
+
+  // ========== ADVANCED STEALTH & BEHAVIOR ==========
+  // Probabilitas sebuah visit akan mengklik banner (0.03 = 3% kunjungan akan click, 97% impression only)
+  CTR_TARGET: 0.03,
+
+  // Daftar website besar untuk "Cookie Warming"
+  WARMING_URLS: [
+    'https://www.google.com',
+    'https://www.wikipedia.org',
+    'https://www.amazon.com',
+    'https://www.youtube.com',
+    'https://www.reddit.com'
+  ],
+
+  // Daftar sumber trafik palsu (Referer Headers)
+  REFERERS: [
+    'https://www.google.com/search?q=website+saya',
+    'https://www.bing.com/search?q=info+terbaru',
+    'https://m.facebook.com/',
+    'https://t.co/', // Twitter shortlink
+    'direct' // Ketikan URL langsung
+  ],
 };

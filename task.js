@@ -14,6 +14,7 @@ const { spoofCanvasWebGLAudio } = require('./anti-detect/canvas');
 const { randomTimezone, injectTimezone, setAcceptLanguage } = require('./anti-detect/timezone');
 const { injectCookies } = require('./anti-detect/cookies');
 const { getProxyAuth } = require('./proxy/proxyManager');
+const { performCookieWarming, simulateReading, clickInternalLink } = require('./utils/behaviors');
 
 // Dynamically import ghost-cursor (ESM module)
 let createCursor;
@@ -80,11 +81,16 @@ async function runTask({ page, data }) {
             console.warn(`[Visit #${visitId}] Timezone warning: ${err.message}`);
         }
 
-        // 6. Set Referer header dari Google Search
-        await page.setExtraHTTPHeaders({
-            'Referer': `https://www.google.com/search?q=${encodeURIComponent(config.WEBSITE_NAME)}`,
+        // 6. Set Referer header dari list acak di config
+        const selectedReferer = config.REFERERS[Math.floor(Math.random() * config.REFERERS.length)];
+        const headersToSet = {
             'Accept-Language': tzInfo.acceptLanguage,
-        });
+        };
+        // Set referer jika bukan direct
+        if (selectedReferer !== 'direct') {
+            headersToSet['Referer'] = selectedReferer;
+        }
+        await page.setExtraHTTPHeaders(headersToSet);
 
         // 7. Inject cookies natural
         try {
@@ -93,33 +99,55 @@ async function runTask({ page, data }) {
             console.warn(`[Visit #${visitId}] Cookie warning: ${err.message}`);
         }
 
-        // 8. Catat waktu mulai navigasi
+        // Dynamically load ghost-cursor
+        if (!createCursor) {
+            const ghostCursor = await import('ghost-cursor');
+            createCursor = ghostCursor.createCursor;
+        }
+        const cursor = createCursor(page);
+
+        // 8. Lakukan Cookie Warming
+        try {
+            await performCookieWarming(page, config.WARMING_URLS, cursor);
+        } catch (wErr) {
+            /* ignore */
+        }
+
+        // 9. Catat waktu mulai navigasi target
         const navStart = Date.now();
 
-        // 9. Navigasi ke homepage dulu (bukan langsung ke halaman target)
+        // 10. Navigasi ke target
+
         await page.goto(config.HOMEPAGE_URL || config.TARGET_URL, {
             waitUntil: 'domcontentloaded',
             timeout: 25000,
         });
 
-        // 10. Tunggu mediumDelay — simulasi membaca halaman
+        // 11. Tunggu mediumDelay — simulasi membaca halaman
         await mediumDelay();
 
-        // 11. Scroll ke bawah 200–500px secara natural
+        // 12. Micro-interaction: Simulate reading & Highlighting text
+        await simulateReading(page, cursor);
+
+        // 13. Scroll ke bawah 200–500px secara natural
         const scrollAmount = Math.floor(Math.random() * 300) + 200;
         await page.evaluate((px) => {
-            window.scrollBy({
-                top: px,
-                left: 0,
-                behavior: 'smooth',
-            });
+            window.scrollBy({ top: px, left: 0, behavior: 'smooth' });
         }, scrollAmount);
 
-        // 12. Tunggu humanDelay
         await humanDelay();
 
-        // 13. Jika HOMEPAGE_URL berbeda dari TARGET_URL, navigasi ke TARGET_URL
+        // 14. Jika HOMEPAGE_URL diset, lakukan Internal Routing page views sebelum klik iklan
         if (config.HOMEPAGE_URL && config.HOMEPAGE_URL !== config.TARGET_URL) {
+            // Coba klik internal link (halaman kedua)
+            const clickedInternal = await clickInternalLink(page, cursor, new URL(config.HOMEPAGE_URL).hostname);
+
+            if (clickedInternal) {
+                await humanDelay(3000, 8000); // baca bentar
+                await simulateReading(page, cursor);
+            }
+
+            // Lanjut ke TARGET_URL final
             await page.goto(config.TARGET_URL, {
                 waitUntil: 'domcontentloaded',
                 timeout: 25000,
@@ -127,29 +155,37 @@ async function runTask({ page, data }) {
             await humanDelay();
         }
 
-        // 14. Tunggu banner muncul
+        // 15. Tunggu banner muncul
         await page.waitForSelector(config.BANNER_SELECTOR, { timeout: 15000 });
 
-        // 15. Klik banner menggunakan ghost-cursor untuk gerakan mouse natural
-        try {
-            if (!createCursor) {
-                const ghostCursor = await import('ghost-cursor');
-                createCursor = ghostCursor.createCursor;
+        // 16. Logika CTR: Hanya klik jika random <= CTR_TARGET
+        const shouldClick = Math.random() <= config.CTR_TARGET;
+
+        if (shouldClick) {
+            console.log(`     -> [ACTION] Visit #${visitId} MENGKLIK BANNER! (CTR Mode)`);
+            try {
+                // Pilih secara acak dari semua banner yang match selector
+                const bannerElements = await page.$$(config.BANNER_SELECTOR);
+                if (bannerElements.length > 0) {
+                    const randomBanner = bannerElements[Math.floor(Math.random() * bannerElements.length)];
+                    await cursor.click(randomBanner);
+                    await humanDelay(3000, 5000); // Tunggu bentar abis diklik
+                }
+            } catch (cursorErr) {
+                // Fallback ke click biasa jika ghost-cursor gagal
+                console.warn(`[Visit #${visitId}] Ghost-cursor fallback: ${cursorErr.message}`);
+                await page.evaluate((selector) => {
+                    const elements = document.querySelectorAll(selector);
+                    if (elements.length > 0) {
+                        elements[Math.floor(Math.random() * elements.length)].click();
+                    }
+                }, config.BANNER_SELECTOR);
             }
-            const cursor = createCursor(page);
-            const bannerElement = await page.$(config.BANNER_SELECTOR);
-            if (bannerElement) {
-                await cursor.click(bannerElement);
-            } else {
-                await page.click(config.BANNER_SELECTOR);
-            }
-        } catch (cursorErr) {
-            // Fallback ke click biasa jika ghost-cursor gagal
-            console.warn(`[Visit #${visitId}] Ghost-cursor fallback: ${cursorErr.message}`);
-            await page.click(config.BANNER_SELECTOR);
+        } else {
+            console.log(`     -> [ACTION] Visit #${visitId} Impression Organik (Skip Banner)`);
         }
 
-        // 16. Catat response time
+        // 17. Catat response time
         responseTime = Date.now() - navStart;
 
         // 17. Screenshot jika diaktifkan
