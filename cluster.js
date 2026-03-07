@@ -14,6 +14,12 @@ const { checkProxyAPI, getProxyList, getProxyArgs } = require('./proxy/proxyMana
  * @returns {Promise<{cluster: Cluster, proxyList: Array<{host: string, port: string}>}>} Cluster instance dan proxyList
  */
 async function createCluster(puppeteer) {
+    // Jika USE_PROXY false, langsung jalankan tanpa proxy
+    if (!config.USE_PROXY) {
+        console.log('[Proxy] USE_PROXY = false — Menjalankan tanpa proxy (Testing Mode)');
+        return await createClusterNoProxy(puppeteer);
+    }
+
     // 1. Pastikan API 9Proxy aktif
     await checkProxyAPI();
 
@@ -94,4 +100,54 @@ async function createCluster(puppeteer) {
     return { cluster, proxyList };
 }
 
-module.exports = { createCluster };
+/**
+ * Membuat cluster tanpa proxy untuk mode testing
+ * @param {object} puppeteer - Instance puppeteer-extra
+ * @returns {Promise<{cluster: Cluster, proxyList: Array<{host: string, port: string}>}>}
+ */
+async function createClusterNoProxy(puppeteer) {
+    const cluster = await Cluster.launch({
+        concurrency: Cluster.CONCURRENCY_BROWSER,
+        maxConcurrency: config.MAX_CONCURRENCY,
+        puppeteer: puppeteer,
+        puppeteerOptions: {
+            headless: config.HEADLESS ? 'new' : false,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-popup-blocking',
+                '--disable-notifications',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-infobars',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--ignore-certificate-errors',
+            ],
+            defaultViewport: null,
+            ignoreDefaultArgs: ['--enable-automation'],
+        },
+        retryLimit: 2,
+        timeout: 120000,
+        monitor: false,
+    });
+
+    // Event handler untuk error per instance
+    cluster.on('taskerror', (err, data) => {
+        const visitId = data?.visitId ?? '?';
+        console.error(`[Cluster Error] Visit #${visitId}: ${err.message}`);
+    });
+
+    // Return dummy proxyList agar struktur return sama dengan createCluster()
+    const dummyProxyList = Array.from(
+        { length: config.MAX_CONCURRENCY },
+        (_, i) => ({ host: '127.0.0.1', port: String(60000 + i) })
+    );
+
+    console.log(`[Proxy] Berjalan tanpa proxy — ${config.MAX_CONCURRENCY} instance dengan IP asli`);
+
+    return { cluster, proxyList: dummyProxyList };
+}
+
+module.exports = { createCluster, createClusterNoProxy };

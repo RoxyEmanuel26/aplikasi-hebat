@@ -95,4 +95,15 @@ module.exports = {
 
   // Maksimal berapa tab popunder yang boleh terbuka sekaligus per instance
   POPUNDER_MAX_TABS: 3,
+
+  // ========== MODE CONFIG ==========
+  // Gunakan proxy sungguhan (9Proxy)?
+  // false = jalankan tanpa proxy (mode testing gratis)
+  // true  = gunakan proxy 9Proxy (mode production)
+  USE_PROXY: true,
+
+  // Mode testing ringan
+  // true  = paksa TOTAL_VISITS: 5, MAX_CONCURRENCY: 2, HEADLESS: false, CTR_TARGET: 1.0
+  // false = gunakan nilai config normal
+  TEST_MODE: false,
 };

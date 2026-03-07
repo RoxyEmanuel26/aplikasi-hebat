@@ -45,14 +45,18 @@ async function runTask({ page, data }) {
 
     try {
         // 1. Authenticate proxy (Penting: Lakukan authenticate SEBELUM page.goto dipanggil)
-        try {
-            const proxyAuth = getProxyAuth();
-            if (proxyAuth.username) {
-                await page.authenticate(proxyAuth);
+        if (config.USE_PROXY) {
+            try {
+                const proxyAuth = getProxyAuth();
+                if (proxyAuth.username) {
+                    await page.authenticate(proxyAuth);
+                }
+            } catch (err) {
+                console.warn(`[Visit #${visitId}] Proxy auth failed: ${err.message}. Skipping task.`);
+                throw new Error('Proxy Authentication Failed');
             }
-        } catch (err) {
-            console.warn(`[Visit #${visitId}] Proxy auth failed: ${err.message}. Skipping task.`);
-            throw new Error('Proxy Authentication Failed');
+        } else {
+            console.log(`[Visit #${visitId}] Proxy dinonaktifkan — berjalan dengan IP asli (Testing Mode)`);
         }
 
         // 2. Pasang Popunder Handler (setelah auth, sebelum navigasi pertama)
