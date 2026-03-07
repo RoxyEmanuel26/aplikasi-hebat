@@ -150,14 +150,14 @@ async function runTask({ page, data }) {
         // 10. Catat waktu mulai navigasi target
         const navStart = Date.now();
 
+        // 10b. Load session persistence SEBELUM navigasi (cookies harus terbawa saat request)
+        await loadSession(page, proxyTarget.host, proxyTarget.port, config);
+
         // 11. Navigasi ke target
         await page.goto(config.HOMEPAGE_URL || config.TARGET_URL, {
             waitUntil: 'domcontentloaded',
             timeout: 25000,
         });
-
-        // 11b. Load session persistence (cookies dari visit sebelumnya)
-        await loadSession(page, proxyTarget.host, proxyTarget.port, config);
 
         // 12. Tunggu mediumDelay — simulasi membaca halaman
         await mediumDelay();
