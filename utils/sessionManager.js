@@ -61,8 +61,13 @@ async function loadSession(page, proxyHost, proxyPort, config) {
         const cookies = JSON.parse(raw);
 
         if (cookies.length > 0) {
-            await page.setCookie(...cookies);
-            console.log(`     -> [Session] Loaded ${cookies.length} cookies untuk IP ${proxyHost}:${proxyPort}`);
+            // Filter invalid fields that Puppeteer's setCookie doesn't accept
+            const validCookies = cookies.map(c => {
+                const { name, value, domain, path, expires, httpOnly, secure, sameSite } = c;
+                return { name, value, domain, path, expires, httpOnly, secure, sameSite };
+            });
+            await page.setCookie(...validCookies);
+            console.log(`     -> [Session] Loaded ${validCookies.length} cookies untuk IP ${proxyHost}:${proxyPort}`);
         }
     } catch (err) {
         console.warn(`[Session] Gagal memuat session: ${err.message}`);

@@ -84,8 +84,8 @@ async function createCluster(puppeteer) {
         // Retry otomatis jika instance gagal
         retryLimit: 2,
 
-        // Timeout 120 detik per task (diperpanjang untuk akomodasi reading pacing + popunder)
-        timeout: 120000,
+        // Timeout 300 detik (5 menit) per task untuk akomodasi reading pacing + proxy wait + popunder
+        timeout: 300000,
 
         // Monitor events
         monitor: false,
@@ -139,7 +139,7 @@ async function createClusterNoProxy(puppeteer) {
             args: ['--no-sandbox', '--disable-setuid-sandbox'],
         },
         retryLimit: 2,
-        timeout: 120000,
+        timeout: 300000,
         monitor: false,
     });
 
