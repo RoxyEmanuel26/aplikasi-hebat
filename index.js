@@ -11,6 +11,8 @@ const config = require('./config');
 const { createCluster } = require('./cluster');
 const { runTask } = require('./task');
 const { logProgress, printSummary } = require('./utils/logger');
+const { waitUntilOperationalHour, getVisitDelay } = require('./utils/trafficScheduler');
+const { canUseProxy, waitForProxy, recordProxyUsage, getProxyStats } = require('./utils/proxyRateLimiter');
 
 // ========== TEST MODE OVERRIDE ==========
 if (config.TEST_MODE) {
@@ -60,12 +62,16 @@ async function main() {
     // AnonymizeUA — anonymize User-Agent, set ke Windows-style UA
     puppeteer.use(AnonymizeUAPlugin({ makeWindows: true }));
 
-    // ========== 3. Launch Cluster ==========
+    // ========== 3. Cek Jadwal Operasional ==========
+    await waitUntilOperationalHour(config);
+    console.log('[Scheduler] Dalam jam operasional. Bot mulai berjalan...');
+
+    // ========== 4. Launch Cluster ==========
 
     // array proxyList di returns dari createCluster
     const { cluster, proxyList } = await createCluster(puppeteer);
 
-    console.log(`[Proxy] Berhasil mendapatkan ${proxyList.length} proxy aktif dari 9Proxy`);
+    console.log(`[Proxy] Berhasil mendapatkan ${proxyList.length} proxy aktif`);
 
     // ========== 4. Definisikan Task Handler ==========
 
@@ -82,12 +88,30 @@ async function main() {
         }
     });
 
-    // ========== 5. Queue Semua Visits ==========
+    // ========== 6. Queue Semua Visits (dengan Rate Limiting) ==========
 
     for (let i = 1; i <= totalVisits; i++) {
-        // Round-robin index assign proxy
-        const proxyIndex = (i - 1) % proxyList.length;
-        const proxyTarget = proxyList[proxyIndex];
+        // Cari proxy yang masih bisa dipakai (belum melebihi VISITS_PER_IP)
+        let proxyTarget = null;
+        let attempts = 0;
+        while (!proxyTarget && attempts < proxyList.length) {
+            const candidate = proxyList[(i - 1 + attempts) % proxyList.length];
+            if (canUseProxy(candidate.host, candidate.port, config)) {
+                proxyTarget = candidate;
+            }
+            attempts++;
+        }
+
+        // Jika semua proxy sudah habis limit, log warning dan skip
+        if (!proxyTarget) {
+            console.warn(`[RateLimit] Semua proxy sudah mencapai VISITS_PER_IP. Visit #${i} dilewati.`);
+            continue;
+        }
+
+        // Tambah delay visit sesuai jam (peak/off-peak)
+        const visitDelay = getVisitDelay(config);
+        await new Promise(r => setTimeout(r, visitDelay));
+
         cluster.queue({ visitId: i, proxyTarget });
     }
 

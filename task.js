@@ -16,6 +16,9 @@ const { injectCookies } = require('./anti-detect/cookies');
 const { getProxyAuth } = require('./proxy/proxyManager');
 const { performCookieWarming, simulateReading, clickInternalLink, simulateMicroTyping, applyReadingPacing } = require('./utils/behaviors');
 const { createPopunderHandler, removePopunderHandler } = require('./utils/popunderHandler');
+const { loadSession, saveSession } = require('./utils/sessionManager');
+const { getOrCreateDeviceProfile } = require('./utils/deviceProfile');
+const { waitForProxy, recordProxyUsage } = require('./utils/proxyRateLimiter');
 
 // Dynamically import ghost-cursor (ESM module)
 let createCursor;
@@ -28,12 +31,22 @@ let createCursor;
  */
 async function runTask({ page, data }) {
     const { visitId, proxyTarget } = data;
-    const viewport = randomViewport();
-    const tzInfo = randomTimezone();
     const startTime = Date.now();
     let responseTime = 0;
     let status = 'OK';
     let errorMsg = '';
+    let exitType = 'normal';
+
+    // Device profile: konsisten per IP atau random (perilaku lama)
+    let viewport, tzInfo;
+    if (config.USE_CONSISTENT_DEVICE_PROFILE) {
+        const profile = getOrCreateDeviceProfile(proxyTarget.host, proxyTarget.port, config);
+        viewport = profile.viewport;
+        tzInfo = { timezone: profile.timezone, acceptLanguage: profile.acceptLanguage };
+    } else {
+        viewport = randomViewport();
+        tzInfo = randomTimezone();
+    }
 
     const targetHostPort = `${proxyTarget.host}:${proxyTarget.port}`;
 
@@ -58,6 +71,10 @@ async function runTask({ page, data }) {
         } else {
             console.log(`[Visit #${visitId}] Proxy dinonaktifkan — berjalan dengan IP asli (Testing Mode)`);
         }
+
+        // Rate limit: tunggu jeda yang diperlukan sebelum visit dari IP ini
+        await waitForProxy(proxyTarget.host, proxyTarget.port, config);
+        recordProxyUsage(proxyTarget.host, proxyTarget.port);
 
         // 2. Pasang Popunder Handler (setelah auth, sebelum navigasi pertama)
         if (config.POPUNDER_ENABLED) {
@@ -138,6 +155,9 @@ async function runTask({ page, data }) {
             waitUntil: 'domcontentloaded',
             timeout: 25000,
         });
+
+        // 11b. Load session persistence (cookies dari visit sebelumnya)
+        await loadSession(page, proxyTarget.host, proxyTarget.port, config);
 
         // 12. Tunggu mediumDelay — simulasi membaca halaman
         await mediumDelay();
@@ -243,6 +263,32 @@ async function runTask({ page, data }) {
             await humanDelay(2000, 4000);
         }
 
+        // Exit behavior realistis
+        const rand = Math.random();
+
+        if (rand < config.EXIT_BOUNCE_CHANCE) {
+            exitType = 'bounce';
+            console.log(`     -> [EXIT] Visit #${visitId} Bounce langsung`);
+
+        } else if (rand < config.EXIT_BOUNCE_CHANCE + config.EXIT_CLICK_BACK_CHANCE) {
+            exitType = 'back';
+            console.log(`     -> [EXIT] Visit #${visitId} Klik tombol Back`);
+            await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => { });
+            await humanDelay(1000, 3000);
+
+        } else if (rand < config.EXIT_BOUNCE_CHANCE + config.EXIT_CLICK_BACK_CHANCE + config.EXIT_SCROLL_BOTTOM_CHANCE) {
+            exitType = 'scroll';
+            console.log(`     -> [EXIT] Visit #${visitId} Scroll sampai bawah`);
+            await page.evaluate(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            });
+            await humanDelay(2000, 5000);
+
+        } else {
+            exitType = 'normal';
+            console.log(`     -> [EXIT] Visit #${visitId} Normal exit`);
+        }
+
         // 22. Catat response time
         responseTime = Date.now() - navStart;
 
@@ -264,6 +310,11 @@ async function runTask({ page, data }) {
         errorMsg = err.message || 'Unknown error';
         responseTime = Date.now() - startTime;
     } finally {
+        // Simpan session sebelum cleanup
+        try {
+            await saveSession(page, proxyTarget.host, proxyTarget.port, config);
+        } catch (_) { /* ignore */ }
+
         // KRITIS: Bersihkan popunder handler untuk mencegah memory leak
         if (popunderHandler) {
             const browser = page.browser();
@@ -271,7 +322,7 @@ async function runTask({ page, data }) {
         }
     }
 
-    // 24. Log hasil ke CSV via logger (termasuk popunder count)
+    // 24. Log hasil ke CSV via logger (termasuk popunder count + exit type)
     logVisit({
         visitId,
         responseTime,
@@ -280,6 +331,7 @@ async function runTask({ page, data }) {
         status,
         error: errorMsg,
         popunderCount: getPopunderCount(),
+        exitType,
     });
 }
 

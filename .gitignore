@@ -12,6 +12,10 @@ results/
 # Screenshots
 screenshots/
 
+# Session & Device Profile data
+sessions/
+device-profiles/
+
 # IDE & OS Files
 .DS_Store
 .vscode/

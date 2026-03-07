@@ -17,7 +17,7 @@ if (!fs.existsSync(LOG_DIR)) {
 
 // Tulis header CSV jika file belum ada
 if (!fs.existsSync(LOG_FILE)) {
-    fs.writeFileSync(LOG_FILE, 'visit_id,timestamp,response_time_ms,proxy_used,viewport,status,popunder_count\n', 'utf-8');
+    fs.writeFileSync(LOG_FILE, 'visit_id,timestamp,response_time_ms,proxy_used,viewport,status,popunder_count,exit_type\n', 'utf-8');
 }
 
 // Buffer untuk menyimpan semua hasil (untuk summary)
@@ -33,29 +33,31 @@ const results = [];
  * @param {string} entry.status - "OK" atau "FAIL"
  * @param {string} [entry.error] - Pesan error jika status FAIL
  * @param {number} [entry.popunderCount] - Jumlah popunder terdeteksi
+ * @param {string} [entry.exitType] - Tipe exit: bounce, back, scroll, normal
  */
 function logVisit(entry) {
-    const { visitId, responseTime, proxy, viewport, status, error, popunderCount } = entry;
+    const { visitId, responseTime, proxy, viewport, status, error, popunderCount, exitType } = entry;
     const timestamp = new Date().toISOString();
     const icon = status === 'OK' ? '✅' : '❌';
     const popCount = popunderCount || 0;
+    const exit = exitType || 'normal';
 
     // Console output
     if (status === 'OK') {
         console.log(
-            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime}ms | Popunder: ${popCount} | Viewport: ${viewport} | Status: ${icon} OK`
+            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime}ms | Pop: ${popCount} | Exit: ${exit} | VP: ${viewport} | ${icon} OK`
         );
     } else {
         console.log(
-            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime || '-'}ms | Popunder: ${popCount} | Viewport: ${viewport} | Status: ${icon} FAIL | ${error || 'Unknown error'}`
+            `[Visit #${visitId}] Proxy: ${proxy} | Time: ${responseTime || '-'}ms | Pop: ${popCount} | Exit: ${exit} | VP: ${viewport} | ${icon} FAIL | ${error || 'Unknown error'}`
         );
     }
 
     // Simpan ke buffer
-    results.push({ visitId, timestamp, responseTime: responseTime || 0, proxy, viewport, status, popunderCount: popCount });
+    results.push({ visitId, timestamp, responseTime: responseTime || 0, proxy, viewport, status, popunderCount: popCount, exitType: exit });
 
     // Append ke CSV
-    const csvLine = `${visitId},${timestamp},${responseTime || 0},${proxy},${viewport},${status},${popCount}\n`;
+    const csvLine = `${visitId},${timestamp},${responseTime || 0},${proxy},${viewport},${status},${popCount},${exit}\n`;
     fs.appendFileSync(LOG_FILE, csvLine, 'utf-8');
 }
 
@@ -95,6 +97,29 @@ function printSummary() {
     console.log(`Fastest         : ${fastest}ms`);
     console.log(`Slowest         : ${slowest}ms`);
     console.log(`Results saved to: results/log.csv`);
+
+    // Proxy usage statistics (jika tersedia)
+    try {
+        const { getProxyStats } = require('./proxyRateLimiter');
+        const proxyStats = getProxyStats();
+        if (proxyStats.length > 0) {
+            console.log('');
+            console.log('--- Proxy Usage ---');
+            for (const stat of proxyStats) {
+                console.log(`  ${stat.proxy}: ${stat.count} visits`);
+            }
+        }
+    } catch (_) { /* proxyRateLimiter may not be available */ }
+
+    // Exit behavior breakdown
+    const bounceCount = results.filter(r => r.exitType === 'bounce').length;
+    const backCount = results.filter(r => r.exitType === 'back').length;
+    const scrollCount = results.filter(r => r.exitType === 'scroll').length;
+    const normalExitCount = results.filter(r => r.exitType === 'normal').length;
+    console.log('');
+    console.log('--- Exit Behavior ---');
+    console.log(`  Bounce: ${bounceCount} | Back: ${backCount} | Scroll: ${scrollCount} | Normal: ${normalExitCount}`);
+
     console.log('=============================');
 }
 

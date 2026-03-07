@@ -106,4 +106,29 @@ module.exports = {
   // true  = paksa TOTAL_VISITS: 5, MAX_CONCURRENCY: 2, HEADLESS: false, CTR_TARGET: 1.0
   // false = gunakan nilai config normal
   TEST_MODE: false,
+
+  // ========== PROXY EFFICIENCY CONFIG ==========
+  VISITS_PER_IP: 150,
+  DELAY_BETWEEN_VISITS_MIN: 30000,
+  DELAY_BETWEEN_VISITS_MAX: 90000,
+
+  // ========== SESSION PERSISTENCE CONFIG ==========
+  USE_PERSISTENT_SESSION: true,
+  SESSION_DIR: './sessions',
+
+  // ========== TRAFFIC SCHEDULE CONFIG ==========
+  USE_TRAFFIC_SCHEDULE: true,
+  SCHEDULE_START_HOUR: 7,
+  SCHEDULE_END_HOUR: 23,
+  PEAK_HOURS: [7, 8, 9, 12, 13, 19, 20, 21, 22],
+  PEAK_MULTIPLIER: 2,
+
+  // ========== EXIT BEHAVIOR CONFIG ==========
+  EXIT_SCROLL_BOTTOM_CHANCE: 0.40,
+  EXIT_CLICK_BACK_CHANCE: 0.20,
+  EXIT_BOUNCE_CHANCE: 0.15,
+
+  // ========== DEVICE PROFILE CONFIG ==========
+  USE_CONSISTENT_DEVICE_PROFILE: true,
+  DEVICE_PROFILE_DIR: './device-profiles',
 };
