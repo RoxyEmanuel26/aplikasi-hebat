@@ -14,6 +14,28 @@ const { logProgress, printSummary } = require('./utils/logger');
 const { waitUntilOperationalHour, getVisitDelay } = require('./utils/trafficScheduler');
 const { canUseProxy, waitForProxy, recordProxyUsage, getProxyStats } = require('./utils/proxyRateLimiter');
 
+// Global Error Handlers untuk mencegah crash bot akibat unhandled promise (contoh: dari stealth plugin pada tab popunder yg tertutup cepat)
+process.on('unhandledRejection', (reason, promise) => {
+    const errorMsg = reason ? String(reason.stack || reason.message || reason) : '';
+    const ignoreKeywords = [
+        'Requesting main frame too early',
+        'Session closed',
+        'TargetCloseError',
+        'Protocol error',
+        'Execution context was destroyed'
+    ];
+
+    if (ignoreKeywords.some(kw => errorMsg.includes(kw))) {
+        // Abaikan error internal Puppeteer/Stealth yang harmless ini
+        return;
+    }
+    console.error('[Global Error] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[Global Error] Uncaught Exception:', err);
+});
+
 // ========== TEST MODE OVERRIDE ==========
 if (config.TEST_MODE) {
     console.log('');

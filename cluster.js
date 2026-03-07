@@ -106,12 +106,11 @@ async function createCluster(puppeteer) {
  * @returns {Promise<{cluster: Cluster, proxyList: Array<{host: string, port: string}>}>}
  */
 async function createClusterNoProxy(puppeteer) {
-    const cluster = await Cluster.launch({
-        concurrency: Cluster.CONCURRENCY_BROWSER,
-        maxConcurrency: config.MAX_CONCURRENCY,
-        puppeteer: puppeteer,
-        puppeteerOptions: {
-            headless: config.HEADLESS ? 'new' : false,
+    // Siapkan perBrowserOptions (sama seperti createCluster tapi tanpa proxy args)
+    const perBrowserOptions = [];
+    for (let i = 0; i < config.MAX_CONCURRENCY; i++) {
+        perBrowserOptions.push({
+            headless: config.HEADLESS ? true : false,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -127,6 +126,17 @@ async function createClusterNoProxy(puppeteer) {
             ],
             defaultViewport: null,
             ignoreDefaultArgs: ['--enable-automation'],
+        });
+    }
+
+    const cluster = await Cluster.launch({
+        concurrency: Cluster.CONCURRENCY_BROWSER,
+        maxConcurrency: config.MAX_CONCURRENCY,
+        puppeteer: puppeteer,
+        perBrowserOptions: perBrowserOptions,
+        puppeteerOptions: {
+            headless: config.HEADLESS ? true : false,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
         },
         retryLimit: 2,
         timeout: 120000,
