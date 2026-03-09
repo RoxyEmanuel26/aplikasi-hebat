@@ -24,6 +24,33 @@ const { waitForProxy, recordProxyUsage } = require('./utils/proxyRateLimiter');
 let createCursor;
 
 /**
+ * Safety net: Tutup semua tab "bocor" yang bukan tab task aktif.
+ * Ini mencegah RAM penuh akibat tab iklan yang lolos dari popunderHandler.
+ */
+async function closeLeakedTabs(page, config) {
+    try {
+        const browser = page.browser();
+        const allPages = await browser.pages();
+        for (const tab of allPages) {
+            if (tab === page || tab.isClosed()) continue;
+            const tabUrl = tab.url();
+            // Tutup tab yang bukan tab task aktif dan bukan halaman internal
+            if (
+                tabUrl !== config.TARGET_URL &&
+                tabUrl !== config.HOMEPAGE_URL &&
+                !tabUrl.startsWith('chrome') &&
+                !tabUrl.startsWith('about:') &&
+                tabUrl !== '' &&
+                tabUrl !== 'about:blank'
+            ) {
+                await tab.close().catch(() => { });
+                console.log(`     -> [TabSweeper] Tab bocor ditutup: ${tabUrl.substring(0, 60)}`);
+            }
+        }
+    } catch (_) { }
+}
+
+/**
  * Task utama per browser instance
  * @param {object} params
  * @param {import('puppeteer').Page} params.page - Puppeteer page
@@ -295,6 +322,9 @@ async function runTask({ page, data }) {
             await humanDelay(2000, 4000);
         }
 
+        // Sapu bersih tab bocor sebelum exit
+        await closeLeakedTabs(page, config);
+
         // Exit behavior realistis
         const rand = Math.random();
 
@@ -342,6 +372,9 @@ async function runTask({ page, data }) {
         errorMsg = err.message || 'Unknown error';
         responseTime = Date.now() - startTime;
     } finally {
+        // Sapu bersih tab bocor terakhir kali
+        await closeLeakedTabs(page, config);
+
         // Simpan session sebelum cleanup
         try {
             await saveSession(page, proxyTarget.host, proxyTarget.port, config);

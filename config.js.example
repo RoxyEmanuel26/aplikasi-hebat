@@ -7,8 +7,8 @@ module.exports = {
   // URL website yang akan ditest
   TARGET_URL: 'https://roxynime.vercel.app',
 
-  // CSS selector dari banner yang akan diklik (contoh: banner Discord)
-  BANNER_SELECTOR: '#banner-discord',
+  // CSS selector dari banner yang akan diklik (Adsterra iframes & Native Banners)
+  BANNER_SELECTOR: 'iframe[title="Advertisement"], iframe[title="Sidebar Advertisement"], iframe[width="728"][height="90"], iframe[width="300"][height="250"], iframe[width="160"][height="600"], iframe[width="160"][height="300"], iframe[width="468"][height="60"], iframe[width="320"][height="50"], div[id^="container-"]',
 
   // Jumlah Chrome paralel maksimal
   MAX_CONCURRENCY: 50,

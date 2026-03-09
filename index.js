@@ -51,13 +51,13 @@ process.on('uncaughtException', (err) => {
 if (config.TEST_MODE) {
     console.log('');
     console.log('[TEST MODE] ⚠️  Mode Testing Aktif — Config di-override:');
-    config.TOTAL_VISITS = 25;
-    config.MAX_CONCURRENCY = 10;
+    config.TOTAL_VISITS = 15;
+    config.MAX_CONCURRENCY = 5;
     config.HEADLESS = false;
     config.CTR_TARGET = 1.0;
     config.POPUNDER_ENABLED = true;
-    console.log('[TEST MODE] TOTAL_VISITS    = 25');
-    console.log('[TEST MODE] MAX_CONCURRENCY = 10');
+    console.log('[TEST MODE] TOTAL_VISITS    = 15');
+    console.log('[TEST MODE] MAX_CONCURRENCY = 5');
     console.log('[TEST MODE] HEADLESS        = false (browser terlihat)');
     console.log('[TEST MODE] CTR_TARGET      = 1.0 (100% klik banner)');
     console.log('[TEST MODE] POPUNDER_ENABLED = true');
