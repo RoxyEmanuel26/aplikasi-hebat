@@ -82,6 +82,7 @@ async function runTask({ page, data }) {
     // Variabel popunder handler (akan di-cleanup di finally)
     let popunderHandler = null;
     let getPopunderCount = () => 0;
+    let cancelPopunder = () => { };
 
     try {
         // Tutup tab kosong bawaan Chromium (about:blank) yang selalu muncul saat launch
@@ -123,6 +124,7 @@ async function runTask({ page, data }) {
             const popunder = createPopunderHandler(browser, visitId, config);
             popunderHandler = popunder.handler;
             getPopunderCount = popunder.getCount;
+            cancelPopunder = popunder.cancel;
         }
 
         // 3. Set viewport acak
@@ -282,8 +284,24 @@ async function runTask({ page, data }) {
                         el => el.closest('.w-full') || el.closest('aside') || el.parentElement
                     );
 
-                    // Klik parent wrapper dengan ghost-cursor
-                    await cursor.click(parentWrapper);
+                    // Klik via CDP koordinat (cross-origin safe, ghost-cursor gagal di iframe)
+                    const wrapperBox = await parentWrapper.boundingBox().catch(() => null);
+                    if (wrapperBox) {
+                        // Gerak mouse ke sekitar banner dulu (natural)
+                        await cursor.moveTo({
+                            x: wrapperBox.x + wrapperBox.width / 2 + (Math.random() * 20 - 10),
+                            y: wrapperBox.y + wrapperBox.height / 2 + (Math.random() * 10 - 5)
+                        }).catch(() => { });
+                        await humanDelay(200, 500);
+                        // Klik langsung via CDP (tidak terpengaruh cross-origin)
+                        await page.mouse.click(
+                            wrapperBox.x + wrapperBox.width / 2,
+                            wrapperBox.y + wrapperBox.height / 2,
+                            { delay: Math.floor(Math.random() * 80) + 40 }
+                        );
+                    } else {
+                        throw new Error('Banner boundingBox null');
+                    }
                     await humanDelay(3000, 5000); // Tunggu bentar abis diklik
 
                     // Dispose handle untuk mencegah memory leak
@@ -380,7 +398,12 @@ async function runTask({ page, data }) {
             await saveSession(page, proxyTarget.host, proxyTarget.port, config);
         } catch (_) { /* ignore */ }
 
-        // KRITIS: Bersihkan popunder handler untuk mencegah memory leak
+        // KRITIS: Cancel semua async popunder yang masih berjalan
+        cancelPopunder();
+        // Beri waktu 200ms agar operasi yang sedang berjalan sempat berhenti
+        await new Promise(r => setTimeout(r, 200));
+
+        // Bersihkan popunder handler untuk mencegah memory leak
         if (popunderHandler) {
             const browser = page.browser();
             removePopunderHandler(browser, popunderHandler);

@@ -22,7 +22,14 @@ process.on('unhandledRejection', (reason, promise) => {
         'Session closed',
         'TargetCloseError',
         'Protocol error',
-        'Execution context was destroyed'
+        'Execution context was destroyed',
+        'Failed to open a new tab',
+        'Target closed',
+        'Connection closed',
+        'Network.setUserAgentOverride',
+        'setUserAgentOverride',
+        'detached Frame',
+        'detached frame',
     ];
 
     if (ignoreKeywords.some(kw => errorMsg.includes(kw))) {
@@ -40,6 +47,11 @@ process.on('uncaughtException', (err) => {
         'TargetCloseError',
         'Protocol error',
         'Execution context was destroyed',
+        'Failed to open a new tab',
+        'Target closed',
+        'Connection closed',
+        'Network.setUserAgentOverride',
+        'setUserAgentOverride',
         'detached Frame',
         'detached frame',
     ];
@@ -51,7 +63,7 @@ process.on('uncaughtException', (err) => {
 if (config.TEST_MODE) {
     console.log('');
     console.log('[TEST MODE] ⚠️  Mode Testing Aktif — Config di-override:');
-    config.TOTAL_VISITS = 15;
+    config.TOTAL_VISITS = 1500;
     config.MAX_CONCURRENCY = 5;
     config.HEADLESS = false;
     config.CTR_TARGET = 1.0;

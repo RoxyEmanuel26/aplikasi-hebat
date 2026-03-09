@@ -14,35 +14,35 @@ const { humanDelay } = require('./delay');
  * @param {import('puppeteer').Browser} browser - Instance browser Puppeteer
  * @param {number} visitId - ID kunjungan untuk logging
  * @param {object} config - Objek konfigurasi dari config.js
- * @returns {{ handler: Function, getCount: () => number }}
+ * @returns {{ handler: Function, getCount: () => number, cancel: () => void }}
  */
 function createPopunderHandler(browser, visitId, config) {
     let popunderCount = 0;
     let totalDetected = 0;
+    let cancelled = false;
 
     const handler = async (target) => {
         try {
-            // 1. Hanya proses target bertipe 'page'
+            if (cancelled) return;
             if (target.type() !== 'page') return;
 
-            // 2. Ambil page object dari target baru
             const newTab = await target.page();
             if (!newTab) return;
 
-            // 3. Tunggu sebentar agar popup sempat redirect dari about:blank
+            // Tunggu agar popup sempat redirect dari about:blank
             await new Promise(r => setTimeout(r, 800));
+            if (cancelled) { await newTab.close().catch(() => { }); return; }
 
-            // 4. Ambil URL tab baru setelah jeda pertama
             let url = '';
             try { url = newTab.url(); } catch { url = ''; }
 
-            // 5. Kalau masih blank/kosong, tunggu sekali lagi lebih lama
             if (!url || url === 'about:blank' || url === '') {
                 await new Promise(r => setTimeout(r, 1500));
+                if (cancelled) { await newTab.close().catch(() => { }); return; }
                 try { url = newTab.url(); } catch { url = ''; }
             }
 
-            // 6. Abaikan URL internal browser (termasuk about:blank yang gagal redirect)
+            // Abaikan URL internal atau blank
             if (
                 !url ||
                 url === '' ||
@@ -52,16 +52,15 @@ function createPopunderHandler(browser, visitId, config) {
                 url.startsWith('data:')
             ) return;
 
-            // 7. Abaikan jika URL = TARGET_URL atau HOMEPAGE_URL (bukan popunder)
+            // Abaikan jika URL = TARGET_URL atau HOMEPAGE_URL
             if (url === config.TARGET_URL || url === config.HOMEPAGE_URL) return;
 
-            // 8. Popunder terdeteksi!
             totalDetected++;
             popunderCount++;
 
             console.log(`     -> [Popunder #${visitId}] Tab baru terdeteksi (${popunderCount}/${config.POPUNDER_MAX_TABS}): ${url.substring(0, 70)}...`);
 
-            // 9. Jika sudah melebihi batas tab, langsung tutup tanpa delay
+            // Jika melebihi batas tab, tutup langsung
             if (popunderCount > config.POPUNDER_MAX_TABS) {
                 console.log(`     -> [Popunder #${visitId}] Melebihi batas tab, langsung tutup.`);
                 await newTab.close().catch(() => { });
@@ -69,26 +68,34 @@ function createPopunderHandler(browser, visitId, config) {
                 return;
             }
 
-            // 10. Simulasi impresi: tunggu acak MIN_DELAY - MAX_DELAY
+            // Simulasi impresi dengan delay
             const delay = config.POPUNDER_MIN_DELAY + Math.random() * (config.POPUNDER_MAX_DELAY - config.POPUNDER_MIN_DELAY);
-            await new Promise(r => setTimeout(r, delay));
 
-            // 11. Scroll sedikit di tab popunder (biar keliatan natural)
+            // Pecah delay menjadi potongan kecil agar bisa di-cancel
+            const chunkMs = 300;
+            let elapsed = 0;
+            while (elapsed < delay) {
+                if (cancelled) { await newTab.close().catch(() => { }); popunderCount--; return; }
+                await new Promise(r => setTimeout(r, Math.min(chunkMs, delay - elapsed)));
+                elapsed += chunkMs;
+            }
+
+            if (cancelled) { await newTab.close().catch(() => { }); popunderCount--; return; }
+
+            // Scroll natural di tab popunder
             await newTab.evaluate(() => {
                 window.scrollBy({ top: Math.random() * 300 + 100, behavior: 'smooth' });
             }).catch(() => { });
 
-            // 12. Tunggu lagi sebentar setelah scroll
-            await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
+            await new Promise(r => setTimeout(r, 800));
+            if (cancelled) { await newTab.close().catch(() => { }); popunderCount--; return; }
 
-            // 13. Tutup tab popunder
             await newTab.close().catch(() => { });
             popunderCount--;
 
             console.log(`     -> [Popunder #${visitId}] Ditutup setelah simulasi impresi (${Math.round(delay)}ms).`);
 
         } catch (e) {
-            // Coba tutup tab jika masih terbuka meski ada error
             try {
                 const newTab = await target.page().catch(() => null);
                 if (newTab && !newTab.isClosed()) {
@@ -99,12 +106,12 @@ function createPopunderHandler(browser, visitId, config) {
         }
     };
 
-    // Pasang event listener
     browser.on('targetcreated', handler);
 
     return {
         handler,
-        getCount: () => totalDetected
+        getCount: () => totalDetected,
+        cancel: () => { cancelled = true; }
     };
 }
 
@@ -118,12 +125,7 @@ function createPopunderHandler(browser, visitId, config) {
 function removePopunderHandler(browser, handler) {
     try {
         browser.off('targetcreated', handler);
-    } catch (e) {
-        // Abaikan jika browser sudah tertutup
-    }
+    } catch (e) { }
 }
 
-module.exports = {
-    createPopunderHandler,
-    removePopunderHandler
-};
+module.exports = { createPopunderHandler, removePopunderHandler };
