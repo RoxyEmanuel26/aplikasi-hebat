@@ -57,6 +57,20 @@ async function runTask({ page, data }) {
     let getPopunderCount = () => 0;
 
     try {
+        // Tutup tab kosong bawaan Chromium (about:blank) yang selalu muncul saat launch
+        try {
+            const browser = page.browser();
+            const allPages = await browser.pages();
+            for (const existingPage of allPages) {
+                if (existingPage !== page) {
+                    const url = existingPage.url();
+                    if (url === 'about:blank' || url === '') {
+                        await existingPage.close().catch(() => { });
+                    }
+                }
+            }
+        } catch (_) { /* ignore */ }
+
         // 1. Authenticate proxy (Penting: Lakukan authenticate SEBELUM page.goto dipanggil)
         if (config.USE_PROXY) {
             try {
@@ -200,8 +214,21 @@ async function runTask({ page, data }) {
         // 18. Phase 4: Terapkan dynamic reading pacing sblm interaksi click banner
         await applyReadingPacing(config.READING_PACE_DISTRIBUTION);
 
+        // Paksa viewport desktop sementara agar banner muncul (hidden lg:flex fix)
+        const currentViewport = page.viewport();
+        const isMobileViewport = currentViewport && currentViewport.width < 1024;
+        if (isMobileViewport) {
+            await page.setViewport({
+                width: 1280,
+                height: 800,
+                deviceScaleFactor: 1,
+                isMobile: false,
+            });
+            await new Promise(r => setTimeout(r, 800)); // tunggu reflow CSS
+        }
+
         // 19. Tunggu banner muncul
-        await page.waitForSelector(config.BANNER_SELECTOR, { timeout: 15000 });
+        await page.waitForSelector(config.BANNER_SELECTOR, { timeout: 30000 });
 
         // 20. Logika CTR: Hanya klik jika random <= CTR_TARGET
         const shouldClick = Math.random() <= config.CTR_TARGET;
@@ -255,6 +282,11 @@ async function runTask({ page, data }) {
             }
         } else {
             console.log(`     -> [ACTION] Visit #${visitId} Impression Organik (Skip Banner)`);
+        }
+
+        // Kembalikan viewport ke mobile setelah urusan klik banner selesai
+        if (isMobileViewport && currentViewport) {
+            await page.setViewport(currentViewport).catch(() => { });
         }
 
         // 21. Tunggu popunder selesai diproses (beri waktu handler menyelesaikan simulasi)

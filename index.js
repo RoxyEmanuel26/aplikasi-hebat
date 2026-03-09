@@ -33,6 +33,17 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 process.on('uncaughtException', (err) => {
+    const errorMsg = err ? String(err.stack || err.message || err) : '';
+    const ignoreKeywords = [
+        'Requesting main frame too early',
+        'Session closed',
+        'TargetCloseError',
+        'Protocol error',
+        'Execution context was destroyed',
+        'detached Frame',
+        'detached frame',
+    ];
+    if (ignoreKeywords.some(kw => errorMsg.includes(kw))) return;
     console.error('[Global Error] Uncaught Exception:', err);
 });
 
@@ -40,13 +51,13 @@ process.on('uncaughtException', (err) => {
 if (config.TEST_MODE) {
     console.log('');
     console.log('[TEST MODE] ⚠️  Mode Testing Aktif — Config di-override:');
-    config.TOTAL_VISITS = 5;
-    config.MAX_CONCURRENCY = 2;
+    config.TOTAL_VISITS = 25;
+    config.MAX_CONCURRENCY = 10;
     config.HEADLESS = false;
     config.CTR_TARGET = 1.0;
     config.POPUNDER_ENABLED = true;
-    console.log('[TEST MODE] TOTAL_VISITS    = 5');
-    console.log('[TEST MODE] MAX_CONCURRENCY = 2');
+    console.log('[TEST MODE] TOTAL_VISITS    = 25');
+    console.log('[TEST MODE] MAX_CONCURRENCY = 10');
     console.log('[TEST MODE] HEADLESS        = false (browser terlihat)');
     console.log('[TEST MODE] CTR_TARGET      = 1.0 (100% klik banner)');
     console.log('[TEST MODE] POPUNDER_ENABLED = true');

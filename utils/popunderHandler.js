@@ -32,8 +32,14 @@ function createPopunderHandler(browser, visitId, config) {
             // 3. Ambil URL tab baru
             const url = await newTab.url().catch(() => 'unknown');
 
-            // 4. Abaikan URL internal browser
-            if (url.startsWith('chrome') || url.startsWith('about:') || url.startsWith('data:')) return;
+            // 4. Abaikan URL internal browser dan blank tab saat launch
+            if (
+                url.startsWith('chrome') ||
+                url.startsWith('about:') ||
+                url.startsWith('data:') ||
+                url === '' ||
+                url === 'about:blank'
+            ) return;
 
             // 5. Abaikan jika URL = TARGET_URL atau HOMEPAGE_URL (bukan popunder)
             if (url === config.TARGET_URL || url === config.HOMEPAGE_URL) return;
