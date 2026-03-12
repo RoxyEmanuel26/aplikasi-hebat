@@ -1,20 +1,45 @@
 /**
  * proxyRateLimiter.js — Pembatas dan Pengatur Jeda Visit per IP Proxy
  * Mencegah satu IP digunakan terlalu banyak dalam sehari.
+ *
+ * Untuk Evomi (single endpoint): gunakan visitId sebagai key,
+ * karena setiap visit sudah mendapat IP unik dari Evomi.
+ * Untuk multi-host proxy (9Proxy dll): gunakan host:port sebagai key.
  */
+
+const config = require('../config');
 
 // Map untuk menyimpan state penggunaan per proxy
 const proxyUsageMap = new Map();
+
+/**
+ * Tentukan key rate limiter yang tepat.
+ * Jika USE_PROXY + Evomi (single endpoint), gunakan visitId.
+ * Jika multi-host atau no-proxy, gunakan host:port.
+ * @param {string} proxyHost
+ * @param {string} proxyPort
+ * @param {number|string|null} visitId
+ * @returns {string}
+ */
+function getRateLimitKey(proxyHost, proxyPort, visitId) {
+    if (config.USE_PROXY && visitId != null) {
+        // Evomi: setiap visitId = IP unik, key per visit
+        return `visit-${visitId}`;
+    }
+    // Multi-host proxy atau testing mode: key per host:port
+    return `${proxyHost}:${proxyPort}`;
+}
 
 /**
  * Cek apakah proxy masih bisa dipakai (belum melebihi VISITS_PER_IP)
  * @param {string} proxyHost
  * @param {string} proxyPort
  * @param {object} config
+ * @param {number|string|null} visitId
  * @returns {boolean}
  */
-function canUseProxy(proxyHost, proxyPort, config) {
-    const key = `${proxyHost}:${proxyPort}`;
+function canUseProxy(proxyHost, proxyPort, config, visitId = null) {
+    const key = getRateLimitKey(proxyHost, proxyPort, visitId);
 
     if (!proxyUsageMap.has(key)) {
         proxyUsageMap.set(key, { count: 0, lastUsed: 0 });
@@ -29,9 +54,16 @@ function canUseProxy(proxyHost, proxyPort, config) {
  * @param {string} proxyHost
  * @param {string} proxyPort
  * @param {object} config
+ * @param {number|string|null} visitId
  */
-async function waitForProxy(proxyHost, proxyPort, config) {
-    const key = `${proxyHost}:${proxyPort}`;
+async function waitForProxy(proxyHost, proxyPort, config, visitId = null) {
+    // Jika VISITS_PER_IP === 1 dan USE_PROXY aktif (Evomi mode),
+    // setiap visit = IP baru, tidak perlu delay antar visit
+    if (config.USE_PROXY && config.VISITS_PER_IP === 1) {
+        return;
+    }
+
+    const key = getRateLimitKey(proxyHost, proxyPort, visitId);
 
     if (!proxyUsageMap.has(key)) {
         proxyUsageMap.set(key, { count: 0, lastUsed: 0 });
@@ -53,9 +85,10 @@ async function waitForProxy(proxyHost, proxyPort, config) {
  * Catat penggunaan proxy (increment count + update timestamp)
  * @param {string} proxyHost
  * @param {string} proxyPort
+ * @param {number|string|null} visitId
  */
-function recordProxyUsage(proxyHost, proxyPort) {
-    const key = `${proxyHost}:${proxyPort}`;
+function recordProxyUsage(proxyHost, proxyPort, visitId = null) {
+    const key = getRateLimitKey(proxyHost, proxyPort, visitId);
 
     if (!proxyUsageMap.has(key)) {
         proxyUsageMap.set(key, { count: 0, lastUsed: 0 });

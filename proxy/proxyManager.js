@@ -40,7 +40,7 @@ function generateEvomiPassword(instanceId) {
  * @returns {string} Argumen flag --proxy-server
  */
 function getEvomiProxyArgs() {
-    return `--proxy-server=http://${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`;
+    return `--proxy-server=https://${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`;
 }
 
 /**

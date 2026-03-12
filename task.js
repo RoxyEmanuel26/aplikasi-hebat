@@ -38,7 +38,7 @@ async function closeLeakedTabs(page, config) {
             // Tutup tab yang bukan tab task aktif dan bukan halaman internal
             if (
                 tabUrl !== config.TARGET_URL &&
-                tabUrl !== config.HOMEPAGE_URL &&
+                (!config.HOMEPAGE_URL || tabUrl !== config.HOMEPAGE_URL) &&
                 !tabUrl.startsWith('chrome') &&
                 !tabUrl.startsWith('about:') &&
                 tabUrl !== '' &&
@@ -131,8 +131,8 @@ async function runTask({ page, data }) {
         }
 
         // Rate limit: tunggu jeda yang diperlukan sebelum visit dari IP ini
-        await waitForProxy(proxyTarget.host, proxyTarget.port, config);
-        recordProxyUsage(proxyTarget.host, proxyTarget.port);
+        await waitForProxy(proxyTarget.host, proxyTarget.port, config, visitId);
+        recordProxyUsage(proxyTarget.host, proxyTarget.port, visitId);
 
         // 2. Pasang Popunder Handler (setelah auth, sebelum navigasi pertama)
         if (config.POPUNDER_ENABLED) {
@@ -352,8 +352,13 @@ async function runTask({ page, data }) {
 
         // 21. Tunggu popunder selesai diproses (beri waktu handler menyelesaikan simulasi)
         if (config.POPUNDER_ENABLED && getPopunderCount() > 0) {
-            console.log(`     -> [Popunder #${visitId}] Menunggu ${getPopunderCount()} popunder selesai diproses...`);
-            await humanDelay(2000, 4000);
+            // Hitung waktu tunggu berdasarkan POPUNDER_MAX_DELAY + buffer 3 detik
+            const popunderWaitTime = (config.POPUNDER_MAX_DELAY || 25000) + 3000;
+            console.log(`     -> [Popunder #${visitId}] Menunggu ${popunderWaitTime / 1000} detik agar semua popunder selesai diproses...`);
+            await new Promise(r => setTimeout(r, popunderWaitTime));
+        } else if (config.POPUNDER_ENABLED) {
+            // Tidak ada popunder terbuka, tunggu sebentar saja
+            await humanDelay(1000, 2000);
         }
 
         // Sapu bersih tab bocor sebelum exit

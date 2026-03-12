@@ -2,6 +2,10 @@
  * index.js — Entry point utama Website Load Testing Bot
  * Meregistrasi semua plugin anti-detection, meluncurkan cluster,
  * dan menjalankan semua task kunjungan.
+ *
+ * Mendukung 2 mode:
+ * - Single Website (mode lama): MULTI_WEBSITE_ENABLED = false
+ * - Multi Website Queue: MULTI_WEBSITE_ENABLED = true
  */
 
 const puppeteer = require('puppeteer-extra');
@@ -77,9 +81,112 @@ if (config.TEST_MODE) {
 }
 // ========== END TEST MODE OVERRIDE ==========
 
+/**
+ * Menjalankan satu siklus penuh visit ke satu website.
+ * Membuat cluster baru, menjalankan semua visit, lalu cleanup.
+ *
+ * @param {object} siteConfig - Konfigurasi website
+ * @param {string} siteConfig.name - Nama website (untuk log)
+ * @param {string} siteConfig.targetUrl - URL target utama
+ * @param {string|null} siteConfig.homepageUrl - URL homepage (null = sama dengan targetUrl)
+ * @param {number} siteConfig.totalVisits - Jumlah visit untuk website ini
+ * @param {Array|null} siteConfig.referers - Override referer list (null = pakai config utama)
+ * @returns {Promise<{name, targetUrl, totalVisits, completedVisits, success, error, durationMs}>}
+ */
+async function runWebsite(siteConfig) {
+    const siteStartTime = Date.now();
+
+    // Simpan nilai config asal sebelum di-override
+    const originalTargetUrl = config.TARGET_URL;
+    const originalHomepageUrl = config.HOMEPAGE_URL;
+    const originalTotalVisits = config.TOTAL_VISITS;
+    const originalReferers = config.REFERERS;
+
+    let completedVisits = 0;
+
+    try {
+        // Override config sementara untuk website ini
+        config.TARGET_URL = siteConfig.targetUrl;
+        config.HOMEPAGE_URL = siteConfig.homepageUrl || siteConfig.targetUrl;
+        config.TOTAL_VISITS = siteConfig.totalVisits;
+        if (siteConfig.referers) config.REFERERS = siteConfig.referers;
+
+        console.log(`[Site: ${siteConfig.name}] Target: ${config.TARGET_URL} | Visits: ${config.TOTAL_VISITS} | Concurrency: ${config.MAX_CONCURRENCY}`);
+
+        // Launch cluster baru untuk website ini
+        const { cluster, proxyList } = await createCluster(puppeteer);
+
+        console.log(`[Proxy] Berhasil mendapatkan ${proxyList.length} proxy aktif`);
+
+        // Definisikan task handler
+        const totalVisits = config.TOTAL_VISITS;
+
+        await cluster.task(async ({ page, data }) => {
+            await runTask({ page, data });
+
+            // Update progress counter
+            completedVisits++;
+            if (completedVisits % 100 === 0 || completedVisits === totalVisits) {
+                logProgress(completedVisits, totalVisits);
+            }
+        });
+
+        // Queue semua visits (dengan Rate Limiting)
+        for (let i = 1; i <= totalVisits; i++) {
+            // Cari proxy yang masih bisa dipakai (belum melebihi VISITS_PER_IP)
+            let proxyTarget = null;
+            let attempts = 0;
+            while (!proxyTarget && attempts < proxyList.length) {
+                const candidate = proxyList[(i - 1 + attempts) % proxyList.length];
+                if (canUseProxy(candidate.host, candidate.port, config)) {
+                    proxyTarget = candidate;
+                }
+                attempts++;
+            }
+
+            // Jika semua proxy sudah habis limit, log warning dan skip
+            if (!proxyTarget) {
+                console.warn(`[RateLimit] Semua proxy sudah mencapai VISITS_PER_IP. Visit #${i} dilewati.`);
+                continue;
+            }
+
+            // Tambah delay visit sesuai jam (peak/off-peak)
+            const visitDelay = getVisitDelay(config);
+            await new Promise(r => setTimeout(r, visitDelay));
+
+            cluster.queue({ visitId: i, proxyTarget });
+        }
+
+        // Tunggu semua selesai
+        await cluster.idle();
+        await cluster.close();
+
+        // Tampilkan summary per site
+        printSummary();
+
+        const durationMs = Date.now() - siteStartTime;
+        console.log(`[Site: ${siteConfig.name}] Selesai — ${completedVisits}/${totalVisits} visits dalam ${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`);
+
+        return {
+            name: siteConfig.name,
+            targetUrl: siteConfig.targetUrl,
+            totalVisits: siteConfig.totalVisits,
+            completedVisits,
+            success: true,
+            error: null,
+            durationMs,
+        };
+
+    } finally {
+        // SELALU kembalikan config ke nilai asal
+        config.TARGET_URL = originalTargetUrl;
+        config.HOMEPAGE_URL = originalHomepageUrl;
+        config.TOTAL_VISITS = originalTotalVisits;
+        config.REFERERS = originalReferers;
+    }
+}
+
 async function main() {
-    console.log('');
-    console.log(`[Bot Started] Target: ${config.TARGET_URL} | Total Visits: ${config.TOTAL_VISITS} | Concurrency: ${config.MAX_CONCURRENCY}`);
     console.log('');
 
     // ========== 1. Startup Check ==========
@@ -100,77 +207,109 @@ async function main() {
     }
 
     // ========== 2. Pasang Plugin Anti-Detection ==========
-
-    // StealthPlugin — sembunyikan navigator.webdriver dan passing deteksi bot
+    // PENTING: Plugin hanya dipasang SEKALI di main(), bukan di runWebsite()
+    // Karena puppeteer-extra plugin bersifat global, memasang dua kali akan error
     puppeteer.use(StealthPlugin());
-
-    // AnonymizeUA — anonymize User-Agent, set ke Windows-style UA
     puppeteer.use(AnonymizeUAPlugin({ makeWindows: true }));
 
     // ========== 3. Cek Jadwal Operasional ==========
     await waitUntilOperationalHour(config);
     console.log('[Scheduler] Dalam jam operasional. Bot mulai berjalan...');
 
-    // ========== 4. Launch Cluster ==========
+    // ========== Mode Single Website (mode lama) ==========
+    if (!config.MULTI_WEBSITE_ENABLED) {
+        console.log(`[Bot Started] Target: ${config.TARGET_URL} | Total Visits: ${config.TOTAL_VISITS} | Concurrency: ${config.MAX_CONCURRENCY}`);
+        await runWebsite({
+            name: config.WEBSITE_NAME || 'Website Utama',
+            targetUrl: config.TARGET_URL,
+            homepageUrl: config.HOMEPAGE_URL,
+            totalVisits: config.TOTAL_VISITS,
+            referers: null,
+        });
 
-    // array proxyList di returns dari createCluster
-    const { cluster, proxyList } = await createCluster(puppeteer);
-
-    console.log(`[Proxy] Berhasil mendapatkan ${proxyList.length} proxy aktif`);
-
-    // ========== 4. Definisikan Task Handler ==========
-
-    let completedVisits = 0;
-    const totalVisits = config.TOTAL_VISITS;
-
-    await cluster.task(async ({ page, data }) => {
-        await runTask({ page, data });
-
-        // Update progress counter
-        completedVisits++;
-        if (completedVisits % 100 === 0 || completedVisits === totalVisits) {
-            logProgress(completedVisits, totalVisits);
-        }
-    });
-
-    // ========== 6. Queue Semua Visits (dengan Rate Limiting) ==========
-
-    for (let i = 1; i <= totalVisits; i++) {
-        // Cari proxy yang masih bisa dipakai (belum melebihi VISITS_PER_IP)
-        let proxyTarget = null;
-        let attempts = 0;
-        while (!proxyTarget && attempts < proxyList.length) {
-            const candidate = proxyList[(i - 1 + attempts) % proxyList.length];
-            if (canUseProxy(candidate.host, candidate.port, config)) {
-                proxyTarget = candidate;
-            }
-            attempts++;
-        }
-
-        // Jika semua proxy sudah habis limit, log warning dan skip
-        if (!proxyTarget) {
-            console.warn(`[RateLimit] Semua proxy sudah mencapai VISITS_PER_IP. Visit #${i} dilewati.`);
-            continue;
-        }
-
-        // Tambah delay visit sesuai jam (peak/off-peak)
-        const visitDelay = getVisitDelay(config);
-        await new Promise(r => setTimeout(r, visitDelay));
-
-        cluster.queue({ visitId: i, proxyTarget });
+        console.log('');
+        console.log('[Bot Finished] All visits completed.');
+        return;
     }
 
-    // ========== 6. Tunggu Semua Selesai ==========
+    // ========== Mode Multi Website Queue ==========
+    let queue = [...config.WEBSITE_QUEUE];
 
-    await cluster.idle();
-    await cluster.close();
+    if (!queue || queue.length === 0) {
+        console.error('[Fatal Error] MULTI_WEBSITE_ENABLED = true tapi WEBSITE_QUEUE kosong!');
+        process.exit(1);
+    }
 
-    // ========== 7. Tampilkan Summary ==========
-
-    printSummary();
+    // Acak urutan jika QUEUE_SHUFFLE aktif
+    if (config.QUEUE_SHUFFLE) {
+        queue = queue.sort(() => Math.random() - 0.5);
+    }
 
     console.log('');
-    console.log('[Bot Finished] All visits completed.');
+    console.log(`[Queue] Multi Website Mode — ${queue.length} website akan dikunjungi secara berurutan`);
+    console.log('');
+
+    const queueResults = [];
+    const queueStartTime = Date.now();
+
+    for (let i = 0; i < queue.length; i++) {
+        const site = queue[i];
+
+        console.log('============================================');
+        console.log(`[Queue] (${i + 1}/${queue.length}) Memulai: ${site.name}`);
+        console.log(`[Queue] URL: ${site.targetUrl} | Visits: ${site.totalVisits}`);
+        console.log('============================================');
+
+        let result;
+        try {
+            result = await runWebsite(site);
+        } catch (err) {
+            // Jika website ini gagal fatal, log tapi LANJUT ke website berikutnya
+            console.error(`[Queue] ❌ Website "${site.name}" gagal: ${err.message}`);
+            result = {
+                name: site.name,
+                targetUrl: site.targetUrl,
+                totalVisits: site.totalVisits,
+                completedVisits: 0,
+                success: false,
+                error: err.message,
+                durationMs: 0,
+            };
+        }
+
+        queueResults.push(result);
+
+        // Jeda sebelum website berikutnya (kecuali website terakhir)
+        if (i < queue.length - 1) {
+            console.log(`\n[Queue] Jeda ${config.QUEUE_DELAY_BETWEEN_SITES / 1000} detik sebelum website berikutnya...`);
+            await new Promise(r => setTimeout(r, config.QUEUE_DELAY_BETWEEN_SITES));
+        }
+    }
+
+    // ========== FINAL SUMMARY ==========
+    const totalDurationMs = Date.now() - queueStartTime;
+    const totalDurationMin = Math.floor(totalDurationMs / 60000);
+    const totalDurationSec = Math.floor((totalDurationMs % 60000) / 1000);
+
+    const totalVisitsAll = queueResults.reduce((sum, r) => sum + r.totalVisits, 0);
+    const completedVisitsAll = queueResults.reduce((sum, r) => sum + r.completedVisits, 0);
+
+    console.log('');
+    console.log('============================================');
+    console.log('[Queue] SUMMARY — Run Selesai');
+    console.log('============================================');
+    queueResults.forEach((r, idx) => {
+        const icon = r.success ? '✅' : '❌';
+        const errNote = r.error ? ` (${r.error})` : '';
+        const dur = `${Math.floor(r.durationMs / 60000)}m ${Math.floor((r.durationMs % 60000) / 1000)}s`;
+        console.log(`[${idx + 1}] ${icon} ${r.name.padEnd(20)} → ${r.completedVisits}/${r.totalVisits} visits | ${dur}${errNote}`);
+    });
+    console.log('--------------------------------------------');
+    console.log(`Total visits     : ${completedVisitsAll} / ${totalVisitsAll}`);
+    console.log(`Total waktu      : ${totalDurationMin} menit ${totalDurationSec} detik`);
+    console.log('============================================');
+    console.log('');
+    console.log('[Bot Finished] Semua website selesai dikunjungi.');
 }
 
 // Jalankan dan handle error global

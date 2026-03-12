@@ -26,9 +26,9 @@ module.exports = {
   EVOMI_PORT: 1000,  // HTTP: 1000 | HTTPS: 1001 | SOCKS5: 1002
 
   // Tipe session Evomi:
-  // 'session'     → IP berubah setiap request
-  // 'hardsession' → IP tetap selama satu sesi penuh (recommended)
-  EVOMI_SESSION_TYPE: 'hardsession',
+  // 'session'     → IP baru setiap sesi baru (recommended untuk bot popunder)
+  // 'hardsession' → IP tetap selama satu sesi penuh
+  EVOMI_SESSION_TYPE: 'session',
 
   // Lifetime IP dalam menit (hanya untuk tipe 'session', null = default)
   EVOMI_LIFETIME: null,
@@ -91,7 +91,8 @@ module.exports = {
   TEST_MODE: false,
 
   // ========== PROXY EFFICIENCY CONFIG ==========
-  VISITS_PER_IP: 150,
+  // Maksimal jumlah visit per IP proxy per hari (1 = IP baru setiap visit, optimal untuk popunder)
+  VISITS_PER_IP: 1,
   DELAY_BETWEEN_VISITS_MIN: 30000,
   DELAY_BETWEEN_VISITS_MAX: 90000,
 
@@ -114,4 +115,45 @@ module.exports = {
   // ========== DEVICE PROFILE CONFIG ==========
   USE_CONSISTENT_DEVICE_PROFILE: true,
   DEVICE_PROFILE_DIR: './device-profiles',
+
+  // ========== MULTI WEBSITE CONFIG ==========
+  // Aktifkan mode multi website queue
+  // true  = jalankan semua website di WEBSITE_QUEUE secara berurutan
+  // false = jalankan 1 website (TARGET_URL) seperti sebelumnya (mode lama)
+  MULTI_WEBSITE_ENABLED: false,
+
+  // Daftar website yang akan dikunjungi secara berurutan
+  // Setiap entry bisa override TARGET_URL, HOMEPAGE_URL, TOTAL_VISITS, dan REFERERS
+  WEBSITE_QUEUE: [
+    {
+      name: 'Website 1',
+      targetUrl: 'https://roxynime.vercel.app',
+      homepageUrl: 'https://roxy.my.id',
+      totalVisits: 200,
+      referers: null, // null = pakai REFERERS dari config utama
+    },
+    {
+      name: 'Website 2',
+      targetUrl: 'https://website2.com',
+      homepageUrl: 'https://website2.com',
+      totalVisits: 150,
+      referers: null,
+    },
+    {
+      name: 'Website 3',
+      targetUrl: 'https://website3.com',
+      homepageUrl: null,
+      totalVisits: 100,
+      referers: [
+        'https://www.google.com/search?q=website3',
+        'direct'
+      ],
+    },
+  ],
+
+  // Jeda antar website dalam ms (5 detik default)
+  QUEUE_DELAY_BETWEEN_SITES: 5000,
+
+  // Acak urutan website di queue setiap kali run
+  QUEUE_SHUFFLE: false,
 };
