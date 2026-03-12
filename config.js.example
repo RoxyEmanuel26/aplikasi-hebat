@@ -1,6 +1,6 @@
 /**
- * config.js — Konfigurasi terpusat untuk Website Load Testing Bot
- * Ubah nilai-nilai di bawah sesuai kebutuhan testing Anda.
+ * config.js.example — Contoh konfigurasi Website Load Testing Bot
+ * COPY file ini menjadi config.js lalu isi sesuai kebutuhan.
  */
 
 module.exports = {
@@ -16,22 +16,27 @@ module.exports = {
   // Total kunjungan yang ingin disimulasikan
   TOTAL_VISITS: 10000,
 
-  // Konfigurasi API 9Proxy
-  // Target API untuk fetch proxy list today
-  PROXY_API_URL: 'http://127.0.0.1:10101/api/today_list?t=2&limit=50&today',
+  // ========== EVOMI PROXY CONFIG ==========
+  // Kredensial Evomi Residential Core (isi dari dashboard Evomi)
+  EVOMI_USERNAME: '',
+  EVOMI_PASSWORD: '',
 
-  // Port lokal aplikasi 9Proxy berjalan
-  PROXY_API_PORT: 10101,
+  // Endpoint dan port Evomi
+  EVOMI_ENDPOINT: 'rp.evomi.com',
+  EVOMI_PORT: 1000,  // HTTP: 1000 | HTTPS: 1001 | SOCKS5: 1002
 
-  // Host lokal untuk proxy
-  PROXY_LOCAL_HOST: '127.0.0.1',
+  // Tipe session Evomi:
+  // 'session'     → IP berubah setiap request
+  // 'hardsession' → IP tetap selama satu sesi penuh (recommended)
+  EVOMI_SESSION_TYPE: 'hardsession',
 
-  // Authentication proxy (default 9Proxy config)
-  PROXY_USERNAME: '',
-  PROXY_PASSWORD: '',
+  // Lifetime IP dalam menit (hanya untuk tipe 'session', null = default)
+  EVOMI_LIFETIME: null,
 
-  // Maksimal list proxy yang ingin diambil dalam satu request
-  PROXY_LIMIT: 50,
+  // Daftar negara yang akan di-rotate acak setiap sesi
+  // Prioritaskan Tier 1 untuk CPM Adsterra tertinggi
+  EVOMI_COUNTRIES: ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'SG', 'JP'],
+
   // true untuk production (tanpa GUI), false untuk debugging (tampilkan browser)
   HEADLESS: true,
 
@@ -48,10 +53,8 @@ module.exports = {
   HOMEPAGE_URL: 'https://roxy.my.id',
 
   // ========== ADVANCED STEALTH & BEHAVIOR ==========
-  // Probabilitas sebuah visit akan mengklik banner (0.03 = 3% kunjungan akan click, 97% impression only)
   CTR_TARGET: 0.03,
 
-  // Daftar website besar untuk "Cookie Warming"
   WARMING_URLS: [
     'https://www.google.com',
     'https://www.wikipedia.org',
@@ -60,51 +63,31 @@ module.exports = {
     'https://www.reddit.com'
   ],
 
-  // Daftar sumber trafik palsu (Referer Headers)
   REFERERS: [
     'https://www.google.com/search?q=website+saya',
     'https://www.bing.com/search?q=info+terbaru',
     'https://m.facebook.com/',
-    'https://t.co/', // Twitter shortlink
-    'direct' // Ketikan URL langsung
+    'https://t.co/',
+    'direct'
   ],
 
-  // Probabilitas bot akan mencari text input dan mengetik secara acak (0.10 = 10%)
   MICRO_TYPING_CHANCE: 0.10,
 
-  // Distribusi kecepatan membaca dan durasi stay di halaman:
-  // - skimmer: 10-20 detik
-  // - average: 30-60 detik
-  // - slow: 60-120 detik (atau lebih)
-  // Total persentase harus 1.0 (100%)
   READING_PACE_DISTRIBUTION: {
-    skimmer: 0.30,   // 30% pengunjung cabut cepet
-    average: 0.60,   // 60% membaca normal
-    slow: 0.10       // 10% lama banget
+    skimmer: 0.30,
+    average: 0.60,
+    slow: 0.10
   },
 
   // ========== POPUNDER CONFIG ==========
-  // Aktifkan simulasi impresi popunder
   POPUNDER_ENABLED: true,
-
-  // Delay minimum sebelum menutup tab popunder (ms)
   POPUNDER_MIN_DELAY: 2000,
-
-  // Delay maksimum sebelum menutup tab popunder (ms)
   POPUNDER_MAX_DELAY: 5000,
-
-  // Maksimal berapa tab popunder yang boleh terbuka sekaligus per instance
   POPUNDER_MAX_TABS: 3,
 
   // ========== MODE CONFIG ==========
-  // Gunakan proxy sungguhan (9Proxy)?
-  // false = jalankan tanpa proxy (mode testing gratis)
-  // true  = gunakan proxy 9Proxy (mode production)
+  // Gunakan proxy Evomi Residential Core?
   USE_PROXY: true,
-
-  // Mode testing ringan
-  // true  = paksa TOTAL_VISITS: 5, MAX_CONCURRENCY: 2, HEADLESS: false, CTR_TARGET: 1.0
-  // false = gunakan nilai config normal
   TEST_MODE: false,
 
   // ========== PROXY EFFICIENCY CONFIG ==========

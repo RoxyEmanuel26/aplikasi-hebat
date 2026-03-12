@@ -13,7 +13,8 @@ const { generateFingerprint, injectFingerprint } = require('./anti-detect/finger
 const { spoofCanvasWebGLAudio } = require('./anti-detect/canvas');
 const { randomTimezone, injectTimezone, setAcceptLanguage } = require('./anti-detect/timezone');
 const { injectCookies } = require('./anti-detect/cookies');
-const { getProxyAuth } = require('./proxy/proxyManager');
+const { getEvomiAuth } = require('./proxy/proxyManager');
+const { getProfileByCountry, getRandomCountry } = require('./profiles');
 const { performCookieWarming, simulateReading, clickInternalLink, simulateMicroTyping, applyReadingPacing } = require('./utils/behaviors');
 const { createPopunderHandler, removePopunderHandler } = require('./utils/popunderHandler');
 const { loadSession, saveSession } = require('./utils/sessionManager');
@@ -64,9 +65,22 @@ async function runTask({ page, data }) {
     let errorMsg = '';
     let exitType = 'normal';
 
-    // Device profile: konsisten per IP atau random (perilaku lama)
-    let viewport, tzInfo;
-    if (config.USE_CONSISTENT_DEVICE_PROFILE) {
+    // Device profile: sinkronisasi dengan country Evomi jika USE_PROXY aktif
+    let viewport, tzInfo, selectedCountry;
+    if (config.USE_PROXY && config.EVOMI_COUNTRIES && config.EVOMI_COUNTRIES.length > 0) {
+        // Pilih country acak dan ambil profil yang cocok
+        selectedCountry = getRandomCountry(config.EVOMI_COUNTRIES);
+        const countryProfile = getProfileByCountry(selectedCountry);
+        viewport = {
+            width: countryProfile.screen.width,
+            height: countryProfile.screen.height,
+            deviceScaleFactor: countryProfile.screen.deviceScaleFactor,
+            isMobile: countryProfile.screen.isMobile,
+            label: countryProfile.screen.label,
+        };
+        tzInfo = { timezone: countryProfile.timezone, acceptLanguage: countryProfile.language };
+        console.log(`     -> [Evomi] Country: ${selectedCountry} | TZ: ${countryProfile.timezone} | ${countryProfile.screen.label}`);
+    } else if (config.USE_CONSISTENT_DEVICE_PROFILE) {
         const profile = getOrCreateDeviceProfile(proxyTarget.host, proxyTarget.port, config);
         viewport = profile.viewport;
         tzInfo = { timezone: profile.timezone, acceptLanguage: profile.acceptLanguage };
@@ -99,15 +113,17 @@ async function runTask({ page, data }) {
             }
         } catch (_) { /* ignore */ }
 
-        // 1. Authenticate proxy (Penting: Lakukan authenticate SEBELUM page.goto dipanggil)
+        // 1. Authenticate proxy Evomi (WAJIB SEBELUM page.goto)
         if (config.USE_PROXY) {
             try {
-                const proxyAuth = getProxyAuth();
-                if (proxyAuth.username) {
-                    await page.authenticate(proxyAuth);
-                }
+                const evomiAuth = getEvomiAuth(visitId);
+                await page.authenticate({
+                    username: evomiAuth.username,
+                    password: evomiAuth.password,
+                });
+                console.log(`[Visit #${visitId}] Evomi auth OK — country: ${evomiAuth.country}`);
             } catch (err) {
-                console.warn(`[Visit #${visitId}] Proxy auth failed: ${err.message}. Skipping task.`);
+                console.warn(`[Visit #${visitId}] Evomi auth failed: ${err.message}. Skipping task.`);
                 throw new Error('Proxy Authentication Failed');
             }
         } else {

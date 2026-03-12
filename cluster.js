@@ -2,60 +2,50 @@
  * cluster.js — Setup puppeteer-cluster
  * Mengkonfigurasi cluster browser dengan isolasi penuh per task,
  * menggunakan puppeteer-extra dengan StealthPlugin yang sudah terpasang.
+ * Proxy: Evomi Residential Core (satu endpoint, auth per page).
  */
 
 const { Cluster } = require('puppeteer-cluster');
 const config = require('./config');
-const { checkProxyAPI, getProxyList, getProxyArgs } = require('./proxy/proxyManager');
+const { getEvomiProxyArgs, generateProxyList } = require('./proxy/proxyManager');
 
 /**
  * Membuat dan mengkonfigurasi puppeteer-cluster
  * @param {object} puppeteer - Instance puppeteer-extra yang sudah dipasang plugin
- * @returns {Promise<{cluster: Cluster, proxyList: Array<{host: string, port: string}>}>} Cluster instance dan proxyList
+ * @returns {Promise<{cluster: Cluster, proxyList: Array<{host: string, port: string, index: number}>}>} Cluster instance dan proxyList
  */
 async function createCluster(puppeteer) {
-    // Jika USE_PROXY false, langsung jalankan tanpa proxy
+    // Jika USE_PROXY false, jalankan tanpa proxy
     if (!config.USE_PROXY) {
         console.log('[Proxy] USE_PROXY = false — Menjalankan tanpa proxy (Testing Mode)');
         return await createClusterNoProxy(puppeteer);
     }
 
-    // 1. Pastikan API 9Proxy aktif
-    await checkProxyAPI();
+    // Evomi menggunakan satu endpoint untuk semua instance.
+    // Auth (username/password) berbeda per page via page.authenticate().
+    const proxyArg = getEvomiProxyArgs();
+    const activeConcurrency = config.MAX_CONCURRENCY;
 
-    // 2. Dapatkan list proxy dari 9Proxy API
-    const proxyList = await getProxyList();
+    console.log(`[Evomi] Proxy endpoint: ${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`);
+    console.log(`[Evomi] Session type: ${config.EVOMI_SESSION_TYPE} | Countries: ${config.EVOMI_COUNTRIES.join(', ')}`);
 
-    // 3. Hitung penyesuaian dependensi concurrency proxy
-    let activeConcurrency = config.MAX_CONCURRENCY;
-    if (proxyList.length < activeConcurrency) {
-        console.warn(`[Warning] Hanya tersedia ${proxyList.length} proxy, maxConcurrency disesuaikan ke ${proxyList.length}`);
-        activeConcurrency = proxyList.length;
-    }
-
-    // 4. Siapkan perBrowserOptions untuk mapping proxy unik per worker
+    // Siapkan perBrowserOptions — semua browser pakai endpoint Evomi yang sama
     const perBrowserOptions = [];
     for (let i = 0; i < activeConcurrency; i++) {
-        // Karena concurrency <= proxyList.length, kita pastikan mapping index ini fix per worker node
-        // Dan rotasi index ini akan berjalan round robin jika dipanggil terus-menerus
-        const proxy = proxyList[i];
-
         perBrowserOptions.push({
             headless: config.HEADLESS ? 'new' : false,
             args: [
                 '--no-sandbox',
+                '--disable-setuid-sandbox',
                 '--disable-popup-blocking',
                 '--disable-notifications',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
                 '--disable-blink-features=AutomationControlled',
                 '--disable-infobars',
                 '--disable-extensions',
-                '--disable-gpu',
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--ignore-certificate-errors',
-                getProxyArgs(proxy),
+                proxyArg,
             ],
             defaultViewport: null,
             ignoreDefaultArgs: ['--enable-automation']
@@ -66,16 +56,16 @@ async function createCluster(puppeteer) {
         // 1 browser per task — isolasi penuh antar instance
         concurrency: Cluster.CONCURRENCY_BROWSER,
 
-        // Jumlah browser paralel maksimal yang active
+        // Jumlah browser paralel maksimal
         maxConcurrency: activeConcurrency,
 
         // Gunakan puppeteer-extra
         puppeteer: puppeteer,
 
-        // Konfigurasi dinamis browser args array (satu-per-satu browser)
+        // Konfigurasi dinamis browser args (satu per browser)
         perBrowserOptions: perBrowserOptions,
 
-        // Opsi launch browser global (timpah oleh perBrowserOptions)
+        // Opsi launch browser global (ditimpa oleh perBrowserOptions)
         puppeteerOptions: {
             headless: config.HEADLESS ? 'new' : false,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -84,7 +74,7 @@ async function createCluster(puppeteer) {
         // Retry otomatis jika instance gagal
         retryLimit: 2,
 
-        // Timeout 300 detik (5 menit) per task untuk akomodasi reading pacing + proxy wait + popunder
+        // Timeout 300 detik (5 menit) per task
         timeout: 300000,
 
         // Monitor events
@@ -97,6 +87,9 @@ async function createCluster(puppeteer) {
         console.error(`[Cluster Error] Visit #${visitId}: ${err.message}`);
     });
 
+    // Generate virtual proxy list untuk kompatibilitas arsitektur
+    const proxyList = generateProxyList(activeConcurrency);
+
     return { cluster, proxyList };
 }
 
@@ -106,7 +99,7 @@ async function createCluster(puppeteer) {
  * @returns {Promise<{cluster: Cluster, proxyList: Array<{host: string, port: string}>}>}
  */
 async function createClusterNoProxy(puppeteer) {
-    // Siapkan perBrowserOptions (sama seperti createCluster tapi tanpa proxy args)
+    // Siapkan perBrowserOptions tanpa proxy args
     const perBrowserOptions = [];
     for (let i = 0; i < config.MAX_CONCURRENCY; i++) {
         perBrowserOptions.push({
@@ -114,12 +107,10 @@ async function createClusterNoProxy(puppeteer) {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
                 '--disable-popup-blocking',
                 '--disable-notifications',
                 '--disable-blink-features=AutomationControlled',
                 '--disable-infobars',
-                '--disable-gpu',
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--ignore-certificate-errors',
@@ -149,7 +140,7 @@ async function createClusterNoProxy(puppeteer) {
         console.error(`[Cluster Error] Visit #${visitId}: ${err.message}`);
     });
 
-    // Return dummy proxyList agar struktur return sama dengan createCluster()
+    // Return dummy proxyList agar struktur return sama
     const dummyProxyList = Array.from(
         { length: config.MAX_CONCURRENCY },
         (_, i) => ({ host: '127.0.0.1', port: String(60000 + i) })

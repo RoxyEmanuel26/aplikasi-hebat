@@ -1,98 +1,95 @@
 /**
- * proxyManager.js — Manajemen proxy dari 9Proxy API
- * Mengambil daftar proxy secara real-time dari aplikasi 9Proxy lokal pengguna.
+ * proxyManager.js — Manajemen proxy Evomi Residential Core
+ * Menggantikan integrasi 9Proxy lama dengan Evomi residential proxy.
+ * Setiap browser instance mendapatkan session ID unik + country acak.
  */
 
-const axios = require('axios');
 const config = require('../config');
-
-// Variabel memori cache proxy list
-let proxyList = [];
+const { getRandomCountry } = require('../profiles');
 
 /**
- * Validasi dan ping ke 9Proxy API
- * Memastikan aplikasi 9Proxy berjalan sebelum bot start.
- * @throws {Error} Apabila aplikasi 9Proxy tidak aktif / request gagal.
+ * Generate password Evomi unik per instance.
+ * Format: PASSWORD_hardsession-botXXX_country-XX
+ * @param {number|string} instanceId - ID unik per browser instance
+ * @returns {{ password: string, country: string }}
  */
-async function checkProxyAPI() {
-    try {
-        const response = await axios.get(config.PROXY_API_URL, { timeout: 5000 });
+function generateEvomiPassword(instanceId) {
+    // Pilih country acak dari daftar
+    const country = getRandomCountry(config.EVOMI_COUNTRIES);
 
-        // Validasi apabila API berjalan namun respond bukan success
-        if (response.data.error === "True" || response.data.error === true) {
-            throw new Error(`9Proxy API Error: ${response.data.message}`);
-        }
+    // Buat session ID unik: bot001, bot002, dst
+    const sessionId = `bot${String(instanceId).padStart(3, '0')}`;
 
-        // Validasi list tidak boleh kosong
-        if (!response.data.data || response.data.data.length === 0) {
-            throw new Error(`9Proxy gagal mengembalikan data proxy. Daftar kosong atau limit habis.`);
-        }
+    // Rakit password sesuai format Evomi
+    let password = `${config.EVOMI_PASSWORD}_${config.EVOMI_SESSION_TYPE}-${sessionId}_country-${country}`;
 
-    } catch (error) {
-        if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
-            throw new Error('9Proxy app tidak berjalan. Pastikan aplikasi 9Proxy aktif di komputer kamu.');
-        }
-        throw error;
+    // Tambahkan lifetime jika dikonfigurasi
+    if (config.EVOMI_LIFETIME) {
+        password += `_lifetime-${config.EVOMI_LIFETIME}`;
     }
+
+    // Tambahkan mode-speed untuk rotasi IP cepat
+    password += '_mode-speed';
+
+    return { password, country };
 }
 
 /**
- * Fetch daftar proxy terbaru dari API
- * Mengubah string "127.0.0.1:PORT" ke object array.
- * @returns {Promise<Array<{host: string, port: string}>>}
- */
-async function fetchProxyList() {
-    const response = await axios.get(config.PROXY_API_URL);
-
-    if (!response.data || !response.data.data || response.data.data.length === 0) {
-        throw new Error('API mengembalikan proxy list kosong.');
-    }
-
-    // Parse response menjadi objects array
-    proxyList = response.data.data.map(proxyStr => {
-        // String format from 9Proxy is "Host:Port" (e.g., "127.0.0.1:60000")
-        const [host, port] = proxyStr.split(':');
-        return { host, port };
-    });
-
-    return proxyList;
-}
-
-/**
- * Mengembalikan array daftar proxy (dari cache atau di fetch baru)
- * @returns {Promise<Array<{host: string, port: string}>>}
- */
-async function getProxyList() {
-    if (proxyList.length === 0) {
-        await fetchProxyList();
-    }
-    return proxyList;
-}
-
-/**
- * Mengembalikan flag argumen untuk puppeteer
- * @param {{host: string, port: string}} proxy - Proxy object instance
+ * Mengembalikan argumen --proxy-server untuk puppeteer launch args.
+ * Semua instance menggunakan endpoint Evomi yang sama (auth via page.authenticate).
  * @returns {string} Argumen flag --proxy-server
  */
-function getProxyArgs(proxy) {
-    return `--proxy-server=http://${proxy.host}:${proxy.port}`;
+function getEvomiProxyArgs() {
+    return `--proxy-server=http://${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`;
 }
 
 /**
- * Mengembalikan object kredenstial proxy dari config
- * @returns {{username: string, password: string}} Object credentials puppeteer page
+ * Mengembalikan kredensial Evomi untuk page.authenticate().
+ * Setiap panggilan menghasilkan session ID unik → IP unik.
+ * @param {number|string} instanceId - ID unik per visit/instance
+ * @returns {{ username: string, password: string, country: string }}
  */
-function getProxyAuth() {
+function getEvomiAuth(instanceId) {
+    const { password, country } = generateEvomiPassword(instanceId);
     return {
-        username: config.PROXY_USERNAME,
-        password: config.PROXY_PASSWORD
+        username: config.EVOMI_USERNAME,
+        password,
+        country,
     };
 }
 
+/**
+ * Mengembalikan flag argumen proxy untuk puppeteer (backward compat).
+ * Digunakan oleh cluster.js untuk mode proxy aktif.
+ * @returns {string} Argumen flag --proxy-server
+ */
+function getProxyArgs() {
+    return getEvomiProxyArgs();
+}
+
+/**
+ * Generate daftar virtual proxy untuk cluster.js.
+ * Evomi menggunakan satu endpoint, jadi ini hanya untuk kompatibilitas
+ * dengan arsitektur proxyList yang sudah ada.
+ * @param {number} count - Jumlah slot concurrent
+ * @returns {Array<{host: string, port: string, index: number}>}
+ */
+function generateProxyList(count) {
+    const list = [];
+    for (let i = 0; i < count; i++) {
+        list.push({
+            host: config.EVOMI_ENDPOINT,
+            port: String(config.EVOMI_PORT),
+            index: i,
+        });
+    }
+    return list;
+}
+
 module.exports = {
-    checkProxyAPI,
-    fetchProxyList,
-    getProxyList,
+    generateEvomiPassword,
+    getEvomiProxyArgs,
+    getEvomiAuth,
     getProxyArgs,
-    getProxyAuth
+    generateProxyList,
 };

@@ -63,9 +63,9 @@ process.on('uncaughtException', (err) => {
 if (config.TEST_MODE) {
     console.log('');
     console.log('[TEST MODE] ⚠️  Mode Testing Aktif — Config di-override:');
-    config.TOTAL_VISITS = 1500;
-    config.MAX_CONCURRENCY = 5;
-    config.HEADLESS = false;
+    config.TOTAL_VISITS = 100;
+    config.MAX_CONCURRENCY = 25;
+    config.HEADLESS = true;
     config.CTR_TARGET = 1.0;
     config.POPUNDER_ENABLED = true;
     console.log('[TEST MODE] TOTAL_VISITS    = 15');
@@ -82,21 +82,21 @@ async function main() {
     console.log(`[Bot Started] Target: ${config.TARGET_URL} | Total Visits: ${config.TOTAL_VISITS} | Concurrency: ${config.MAX_CONCURRENCY}`);
     console.log('');
 
-    // ========== 1. Startup Check & Fetch Proxy ==========
+    // ========== 1. Startup Check ==========
     if (config.USE_PROXY) {
-        console.log('[Bot Starting] Memeriksa koneksi ke 9Proxy API...');
-
-        try {
-            const { checkProxyAPI } = require('./proxy/proxyManager');
-            await checkProxyAPI();
-        } catch (err) {
-            console.error(`[Fatal Error] ${err.message}`);
+        // Validasi kredensial Evomi sudah diisi
+        if (!config.EVOMI_USERNAME || config.EVOMI_USERNAME === 'YOUR_EVOMI_USERNAME' ||
+            !config.EVOMI_PASSWORD || config.EVOMI_PASSWORD === 'YOUR_EVOMI_PASSWORD') {
+            console.error('[Fatal Error] Kredensial Evomi belum diisi di config.js!');
+            console.error('              Isi EVOMI_USERNAME dan EVOMI_PASSWORD terlebih dahulu.');
+            console.error('              Atau jalankan "node test-evomi.js" untuk test proxy.');
             process.exit(1);
         }
 
-        console.log('[Bot Ready] 9Proxy API aktif. Mengambil daftar proxy...');
+        console.log(`[Evomi] Proxy aktif — ${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`);
+        console.log(`[Evomi] Session: ${config.EVOMI_SESSION_TYPE} | Countries: ${config.EVOMI_COUNTRIES.join(', ')}`);
     } else {
-        console.log('[Bot Starting] USE_PROXY = false — Melewati pengecekan 9Proxy API');
+        console.log('[Bot Starting] USE_PROXY = false — Berjalan tanpa proxy (Testing Mode)');
     }
 
     // ========== 2. Pasang Plugin Anti-Detection ==========
