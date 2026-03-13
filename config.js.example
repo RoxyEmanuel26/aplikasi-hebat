@@ -1,29 +1,29 @@
 /**
- * config.js.example — Contoh konfigurasi Website Load Testing Bot
- * COPY file ini menjadi config.js lalu isi sesuai kebutuhan.
+ * config.js — Konfigurasi terpusat untuk Website Load Testing Bot
+ * Ubah nilai-nilai di bawah sesuai kebutuhan testing Anda.
  */
 
 module.exports = {
   // URL website yang akan ditest
-  TARGET_URL: 'https://roxynime.vercel.app',
+  TARGET_URL: 'https://tips-and-trick.vercel.app/',
 
   // CSS selector dari banner yang akan diklik (Adsterra iframes & Native Banners)
   BANNER_SELECTOR: 'iframe[title="Advertisement"], iframe[title="Sidebar Advertisement"], iframe[width="728"][height="90"], iframe[width="300"][height="250"], iframe[width="160"][height="600"], iframe[width="160"][height="300"], iframe[width="468"][height="60"], iframe[width="320"][height="50"], div[id^="container-"]',
 
   // Jumlah Chrome paralel maksimal
-  MAX_CONCURRENCY: 50,
+  MAX_CONCURRENCY: 2,
 
   // Total kunjungan yang ingin disimulasikan
-  TOTAL_VISITS: 10000,
+  TOTAL_VISITS: 10,
 
   // ========== EVOMI PROXY CONFIG ==========
-  // Kredensial Evomi Residential Core (isi dari dashboard Evomi)
+  // Kredensial Evomi Residential Core
   EVOMI_USERNAME: '',
   EVOMI_PASSWORD: '',
 
   // Endpoint dan port Evomi
   EVOMI_ENDPOINT: 'rp.evomi.com',
-  EVOMI_PORT: 1000,  // HTTP: 1000 | HTTPS: 1001 | SOCKS5: 1002
+  EVOMI_PORT: 1001,  // HTTP: 1000 | HTTPS: 1001 | SOCKS5: 1002
 
   // Tipe session Evomi:
   // 'session'     → IP baru setiap sesi baru (recommended untuk bot popunder)
@@ -31,14 +31,15 @@ module.exports = {
   EVOMI_SESSION_TYPE: 'session',
 
   // Lifetime IP dalam menit (hanya untuk tipe 'session', null = default)
-  EVOMI_LIFETIME: null,
+  // Contoh: 40 = IP bertahan 40 menit, max 120
+  EVOMI_LIFETIME: 20,
 
   // Daftar negara yang akan di-rotate acak setiap sesi
   // Prioritaskan Tier 1 untuk CPM Adsterra tertinggi
   EVOMI_COUNTRIES: ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'SG', 'JP'],
 
   // true untuk production (tanpa GUI), false untuk debugging (tampilkan browser)
-  HEADLESS: true,
+  HEADLESS: false,
 
   // Aktifkan screenshot per instance (disimpan di folder screenshots/)
   SCREENSHOT_ENABLED: false,
@@ -47,80 +48,122 @@ module.exports = {
   LOG_RESPONSE_TIME: true,
 
   // Nama website untuk Referer header Google Search
-  WEBSITE_NAME: 'websitesaya',
+  WEBSITE_NAME: 'tech',
 
   // Homepage URL (jika berbeda dari TARGET_URL, navigasi ke sini dulu)
-  HOMEPAGE_URL: 'https://roxy.my.id',
+  HOMEPAGE_URL: 'https://smart-ai-orpin.vercel.app/',
 
   // ========== ADVANCED STEALTH & BEHAVIOR ==========
+  // Probabilitas sebuah visit akan mengklik banner (0.03 = 3% kunjungan akan click, 97% impression only)
   CTR_TARGET: 0.03,
 
+  // Daftar website besar untuk "Cookie Warming"
   WARMING_URLS: [
     'https://www.google.com',
-    'https://www.wikipedia.org',
-    'https://www.amazon.com',
-    'https://www.youtube.com',
-    'https://www.reddit.com'
   ],
 
+  // Daftar sumber trafik palsu (Referer Headers)
   REFERERS: [
-    'https://www.google.com/search?q=website+saya',
-    'https://www.bing.com/search?q=info+terbaru',
     'https://m.facebook.com/',
     'https://t.co/',
-    'direct'
+    'direct' // Ketikan URL langsung
   ],
 
+  // Probabilitas bot akan mencari text input dan mengetik secara acak (0.10 = 10%)
   MICRO_TYPING_CHANCE: 0.10,
 
+  // Distribusi kecepatan membaca dan durasi stay di halaman:
+  // - skimmer: 10-20 detik
+  // - average: 30-60 detik
+  // - slow: 60-120 detik (atau lebih)
+  // Total persentase harus 1.0 (100%)
   READING_PACE_DISTRIBUTION: {
-    skimmer: 0.30,
-    average: 0.60,
-    slow: 0.10
+    skimmer: 0.25,   // 25% pengunjung cabut cepet
+    average: 0.65,   // 65% membaca normal
+    slow: 0.10       // 10% lama banget
   },
 
   // ========== POPUNDER CONFIG ==========
+  // Aktifkan simulasi impresi popunder
   POPUNDER_ENABLED: true,
-  POPUNDER_MIN_DELAY: 2000,
-  POPUNDER_MAX_DELAY: 5000,
-  POPUNDER_MAX_TABS: 3,
+
+  // Delay minimum sebelum menutup tab popunder (ms)
+  POPUNDER_MIN_DELAY: 15000,
+
+  // Delay maksimum sebelum menutup tab popunder (ms)
+  POPUNDER_MAX_DELAY: 25000,
+
+  // Maksimal berapa tab popunder yang boleh terbuka sekaligus per instance
+  POPUNDER_MAX_TABS: 5,
 
   // ========== MODE CONFIG ==========
   // Gunakan proxy Evomi Residential Core?
+  // false = jalankan tanpa proxy (mode testing gratis, IP asli)
+  // true  = gunakan proxy Evomi (mode production, IP global)
   USE_PROXY: true,
+
+  // Mode testing ringan
+  // true  = paksa TOTAL_VISITS rendah, HEADLESS: false, CTR_TARGET: 1.0
+  // false = gunakan nilai config normal
   TEST_MODE: false,
 
   // ========== PROXY EFFICIENCY CONFIG ==========
   // Maksimal jumlah visit per IP proxy per hari (1 = IP baru setiap visit, optimal untuk popunder)
   VISITS_PER_IP: 1,
-  DELAY_BETWEEN_VISITS_MIN: 30000,
-  DELAY_BETWEEN_VISITS_MAX: 90000,
+
+  // Jeda minimum antar visit dari IP yang sama (ms) — 35 detik
+  DELAY_BETWEEN_VISITS_MIN: 65000,
+
+  // Jeda maksimum antar visit dari IP yang sama (ms) — 100 detik
+  DELAY_BETWEEN_VISITS_MAX: 300000,
 
   // ========== SESSION PERSISTENCE CONFIG ==========
+  // Simpan cookies & session per IP proxy agar terlihat seperti pengunjung balik lagi
   USE_PERSISTENT_SESSION: true,
+
+  // Folder penyimpanan session (satu subfolder per IP)
   SESSION_DIR: './sessions',
 
   // ========== TRAFFIC SCHEDULE CONFIG ==========
-  USE_TRAFFIC_SCHEDULE: true,
+  // Aktifkan pembatasan jam operasi bot
+  USE_TRAFFIC_SCHEDULE: false,
+
+  // Jam mulai operasi (format 24 jam, WIB)
   SCHEDULE_START_HOUR: 7,
+
+  // Jam selesai operasi (format 24 jam, WIB)
   SCHEDULE_END_HOUR: 23,
-  PEAK_HOURS: [7, 8, 9, 12, 13, 19, 20, 21, 22],
+
+  // Jam-jam puncak traffic (bot kirim lebih banyak visit di jam ini)
+  PEAK_HOURS: [8, 9, 12, 13, 19, 20, 21, 22],
+
+  // Multiplier kecepatan visit di jam puncak (2 = 2x lebih cepat dari jam biasa)
   PEAK_MULTIPLIER: 2,
 
   // ========== EXIT BEHAVIOR CONFIG ==========
-  EXIT_SCROLL_BOTTOM_CHANCE: 0.40,
+  // Probabilitas pengunjung akan scroll sampai bawah halaman sebelum keluar (0.4 = 40%)
+  EXIT_SCROLL_BOTTOM_CHANCE: 0.35,
+
+  // Probabilitas pengunjung akan klik tombol back browser sebelum keluar (0.20 = 20%)
   EXIT_CLICK_BACK_CHANCE: 0.20,
-  EXIT_BOUNCE_CHANCE: 0.15,
+
+  // Probabilitas pengunjung langsung bounce/keluar cepat tanpa interaksi (0.15 = 15%)
+  EXIT_BOUNCE_CHANCE: 0.12,
 
   // ========== DEVICE PROFILE CONFIG ==========
+  // Gunakan profil device yang konsisten per IP proxy
+  // true = satu IP selalu pakai viewport/UA/timezone yang sama
+  // false = random setiap visit (perilaku lama)
   USE_CONSISTENT_DEVICE_PROFILE: true,
+
+  // Folder penyimpanan device profile per IP
   DEVICE_PROFILE_DIR: './device-profiles',
 
   // ========== MULTI WEBSITE CONFIG ==========
   // Aktifkan mode multi website queue
   // true  = jalankan semua website di WEBSITE_QUEUE secara berurutan
   // false = jalankan 1 website (TARGET_URL) seperti sebelumnya (mode lama)
-  MULTI_WEBSITE_ENABLED: false,
+  MULTI_WEBSITE_ENABLED: true,
 
   // Daftar website yang akan dikunjungi secara berurutan
   // Setiap entry bisa override TARGET_URL, HOMEPAGE_URL, TOTAL_VISITS, dan REFERERS
@@ -129,7 +172,7 @@ module.exports = {
       name: 'Website 1',
       targetUrl: 'https://roxynime.vercel.app',
       homepageUrl: 'https://roxy.my.id',
-      totalVisits: 241,
+      totalVisits: 1,
       referers: [
 
         // ===== GOOGLE SEARCH — General Anime (English) =====
@@ -253,21 +296,642 @@ module.exports = {
     },
     {
       name: 'Website 2',
-      targetUrl: 'https://website2.com',
-      homepageUrl: 'https://website2.com',
-      totalVisits: 163,
-      referers: null,
-    },
-    {
-      name: 'Website 3',
-      targetUrl: 'https://website3.com',
+      targetUrl: 'https://tips-and-trick.vercel.app/',
       homepageUrl: null,
-      totalVisits: 112,
+      totalVisits: 163,
       referers: [
-        'https://www.google.com/search?q=website3',
-        'direct'
+
+        // ===== GOOGLE SEARCH — How-To & Tips General =====
+        'https://www.google.com/search?q=best+tips+and+tricks+2025',
+        'https://www.google.com/search?q=useful+life+hacks+2025',
+        'https://www.google.com/search?q=how+to+tips+and+tricks+for+beginners',
+        'https://www.google.com/search?q=top+productivity+tips+2025',
+        'https://www.google.com/search?q=best+tech+tips+and+tricks',
+        'https://www.google.com/search?q=computer+tips+and+tricks+for+windows',
+        'https://www.google.com/search?q=smartphone+tips+and+tricks+2025',
+        'https://www.google.com/search?q=android+tips+and+tricks+2025',
+        'https://www.google.com/search?q=iphone+tips+and+tricks+2025',
+        'https://www.google.com/search?q=google+chrome+tips+and+tricks',
+        'https://www.google.com/search?q=windows+11+tips+and+tricks',
+        'https://www.google.com/search?q=how+to+speed+up+computer+2025',
+        'https://www.google.com/search?q=how+to+save+battery+android',
+        'https://www.google.com/search?q=how+to+be+more+productive+daily',
+        'https://www.google.com/search?q=hidden+features+android+2025',
+        'https://www.google.com/search?q=hidden+features+iphone+2025',
+        'https://www.google.com/search?q=free+tools+for+productivity+2025',
+        'https://www.google.com/search?q=best+free+apps+for+android+2025',
+        'https://www.google.com/search?q=best+chrome+extensions+2025',
+        'https://www.google.com/search?q=how+to+use+chatgpt+effectively',
+        'https://www.google.com/search?q=ai+tools+for+everyday+use+2025',
+        'https://www.google.com/search?q=best+websites+for+learning+new+skills',
+        'https://www.google.com/search?q=how+to+make+money+online+tips',
+        'https://www.google.com/search?q=work+from+home+productivity+tips',
+        'https://www.google.com/search?q=time+management+tips+for+students',
+
+        // ===== GOOGLE SEARCH — US Targeted =====
+        'https://www.google.com/search?q=best+tips+and+tricks+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=tech+tips+for+beginners&gl=US&hl=en',
+        'https://www.google.com/search?q=how+to+tips+daily+life&gl=US&hl=en',
+
+        // ===== GOOGLE SEARCH — UK Targeted =====
+        'https://www.google.co.uk/search?q=best+tips+and+tricks+2025',
+        'https://www.google.co.uk/search?q=tech+tips+and+tricks+uk',
+        'https://www.google.co.uk/search?q=productivity+tips+2025',
+
+        // ===== GOOGLE SEARCH — Australia Targeted =====
+        'https://www.google.com.au/search?q=tips+and+tricks+2025',
+        'https://www.google.com.au/search?q=best+tech+tips+australia',
+
+        // ===== GOOGLE SEARCH — Germany Targeted =====
+        'https://www.google.de/search?q=beste+tipps+und+tricks+2025',
+        'https://www.google.de/search?q=smartphone+tipps+2025',
+
+        // ===== GOOGLE SEARCH — France Targeted =====
+        'https://www.google.fr/search?q=meilleurs+conseils+et+astuces+2025',
+        'https://www.google.fr/search?q=astuces+productivite+2025',
+
+        // ===== FACEBOOK GROUPS — Tips & Tricks International =====
+        'https://www.facebook.com/groups/tipsandtrickspro',
+        'https://www.facebook.com/groups/techtipsandtricks',
+        'https://www.facebook.com/groups/lifehacksdaily',
+        'https://www.facebook.com/groups/productivityhacks',
+        'https://www.facebook.com/groups/androidtipsandtricks',
+        'https://www.facebook.com/groups/windowstipsandtricks',
+        'https://www.facebook.com/groups/techloversworld',
+        'https://www.facebook.com/groups/digitalskillslearning',
+        'https://www.facebook.com/groups/workfromhometips',
+        'https://www.facebook.com/groups/onlinebusinesstips2025',
+
+        // ===== FACEBOOK MOBILE =====
+        'https://m.facebook.com/groups/tipsandtrickspro',
+        'https://m.facebook.com/groups/lifehacksdaily',
+        'https://m.facebook.com/',
+        'https://l.facebook.com/',
+
+        // ===== TWITTER / X =====
+        'https://t.co/',
+        'https://x.com/',
+        'https://twitter.com/search?q=%23TipsAndTricks',
+        'https://twitter.com/search?q=%23LifeHacks',
+        'https://twitter.com/search?q=%23TechTips2025',
+        'https://twitter.com/search?q=%23ProductivityHacks',
+        'https://twitter.com/search?q=%23WorkFromHome',
+
+        // ===== REDDIT =====
+        'https://www.reddit.com/r/LifeProTips/',
+        'https://www.reddit.com/r/productivity/',
+        'https://www.reddit.com/r/technology/',
+        'https://www.reddit.com/r/androidtips/',
+        'https://www.reddit.com/r/windows/',
+        'https://www.reddit.com/r/learnprogramming/',
+        'https://www.reddit.com/r/Entrepreneur/',
+
+        // ===== PINTEREST (sangat relevan untuk tips & how-to) =====
+        'https://www.pinterest.com/search/pins/?q=tips+and+tricks+2025',
+        'https://www.pinterest.com/search/pins/?q=life+hacks+useful',
+        'https://www.pinterest.com/search/pins/?q=productivity+tips',
+
+        // ===== QUORA =====
+        'https://www.quora.com/search?q=best+tips+and+tricks+2025',
+        'https://www.quora.com/search?q=useful+life+hacks',
+        'https://www.quora.com/search?q=tech+tips+for+beginners',
+
+        // ===== DIRECT =====
+        'direct',
+        'direct',
+        'direct',
+
       ],
     },
+
+    {
+      name: 'Website 3',
+      targetUrl: 'https://prompt-hacks.vercel.app/',
+      homepageUrl: null,
+      totalVisits: 123,
+      referers: [
+
+        // ===== GOOGLE SEARCH — Prompt & AI General =====
+        'https://www.google.com/search?q=best+chatgpt+prompts+2025',
+        'https://www.google.com/search?q=chatgpt+prompt+hacks+2025',
+        'https://www.google.com/search?q=best+ai+prompts+for+beginners',
+        'https://www.google.com/search?q=how+to+write+better+prompts+chatgpt',
+        'https://www.google.com/search?q=chatgpt+prompt+engineering+guide',
+        'https://www.google.com/search?q=advanced+chatgpt+prompts+2025',
+        'https://www.google.com/search?q=prompt+engineering+tips+2025',
+        'https://www.google.com/search?q=best+prompts+for+midjourney+2025',
+        'https://www.google.com/search?q=best+prompts+for+stable+diffusion',
+        'https://www.google.com/search?q=best+prompts+for+gemini+ai',
+        'https://www.google.com/search?q=chatgpt+tricks+most+people+dont+know',
+        'https://www.google.com/search?q=how+to+use+chatgpt+effectively+2025',
+        'https://www.google.com/search?q=ai+prompt+ideas+for+productivity',
+        'https://www.google.com/search?q=chatgpt+prompts+for+business+2025',
+        'https://www.google.com/search?q=chatgpt+prompts+for+content+creation',
+        'https://www.google.com/search?q=chatgpt+prompts+for+coding+developers',
+        'https://www.google.com/search?q=chatgpt+prompts+for+students+2025',
+        'https://www.google.com/search?q=chatgpt+prompts+for+marketing',
+        'https://www.google.com/search?q=best+ai+tools+2025+free',
+        'https://www.google.com/search?q=ai+tools+for+everyday+use+2025',
+        'https://www.google.com/search?q=free+ai+tools+like+chatgpt+2025',
+        'https://www.google.com/search?q=how+to+make+money+with+chatgpt+2025',
+        'https://www.google.com/search?q=claude+ai+vs+chatgpt+2025',
+        'https://www.google.com/search?q=gemini+vs+chatgpt+which+is+better',
+        'https://www.google.com/search?q=prompt+hacks+for+better+ai+results',
+
+        // ===== GOOGLE SEARCH — US Targeted =====
+        'https://www.google.com/search?q=best+chatgpt+prompts+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=prompt+engineering+tips&gl=US&hl=en',
+        'https://www.google.com/search?q=how+to+use+ai+tools+effectively&gl=US&hl=en',
+
+        // ===== GOOGLE SEARCH — UK Targeted =====
+        'https://www.google.co.uk/search?q=best+chatgpt+prompts+2025',
+        'https://www.google.co.uk/search?q=prompt+hacks+ai+2025',
+        'https://www.google.co.uk/search?q=ai+productivity+tools+uk',
+
+        // ===== GOOGLE SEARCH — Australia Targeted =====
+        'https://www.google.com.au/search?q=best+ai+prompts+2025',
+        'https://www.google.com.au/search?q=chatgpt+tips+australia',
+
+        // ===== GOOGLE SEARCH — Germany Targeted =====
+        'https://www.google.de/search?q=beste+chatgpt+prompts+2025',
+        'https://www.google.de/search?q=ai+tools+tipps+deutsch',
+
+        // ===== GOOGLE SEARCH — France Targeted =====
+        'https://www.google.fr/search?q=meilleurs+prompts+chatgpt+2025',
+        'https://www.google.fr/search?q=astuces+chatgpt+2025',
+
+        // ===== FACEBOOK GROUPS — AI & Prompt Community =====
+        'https://www.facebook.com/groups/chatgptusers',
+        'https://www.facebook.com/groups/chatgptprompts',
+        'https://www.facebook.com/groups/aipromptsengineering',
+        'https://www.facebook.com/groups/artificialintelligenceai',
+        'https://www.facebook.com/groups/aitools2025',
+        'https://www.facebook.com/groups/promptengineeringcommunity',
+        'https://www.facebook.com/groups/midjourneyprompts',
+        'https://www.facebook.com/groups/chatgptforbeginners',
+        'https://www.facebook.com/groups/aicontentcreators',
+        'https://www.facebook.com/groups/makewithai',
+
+        // ===== FACEBOOK MOBILE =====
+        'https://m.facebook.com/groups/chatgptusers',
+        'https://m.facebook.com/groups/aitools2025',
+        'https://m.facebook.com/',
+        'https://l.facebook.com/',
+
+        // ===== TWITTER / X =====
+        'https://t.co/',
+        'https://x.com/',
+        'https://twitter.com/search?q=%23ChatGPT',
+        'https://twitter.com/search?q=%23PromptEngineering',
+        'https://twitter.com/search?q=%23AITools2025',
+        'https://twitter.com/search?q=%23PromptHacks',
+        'https://twitter.com/search?q=%23ChatGPTTips',
+        'https://twitter.com/search?q=%23AIProductivity',
+
+        // ===== REDDIT =====
+        'https://www.reddit.com/r/ChatGPT/',
+        'https://www.reddit.com/r/PromptEngineering/',
+        'https://www.reddit.com/r/artificial/',
+        'https://www.reddit.com/r/MachineLearning/',
+        'https://www.reddit.com/r/OpenAI/',
+        'https://www.reddit.com/r/midjourney/',
+        'https://www.reddit.com/r/StableDiffusion/',
+
+        // ===== YOUTUBE (orang cari di YT lalu klik link di deskripsi) =====
+        'https://www.youtube.com/results?search_query=best+chatgpt+prompts+2025',
+        'https://www.youtube.com/results?search_query=prompt+engineering+tutorial',
+        'https://www.youtube.com/results?search_query=chatgpt+tips+and+tricks+2025',
+
+        // ===== PINTEREST =====
+        'https://www.pinterest.com/search/pins/?q=chatgpt+prompts+2025',
+        'https://www.pinterest.com/search/pins/?q=ai+prompt+ideas',
+        'https://www.pinterest.com/search/pins/?q=prompt+engineering+tips',
+
+        // ===== QUORA =====
+        'https://www.quora.com/search?q=best+chatgpt+prompts',
+        'https://www.quora.com/search?q=how+to+write+good+ai+prompts',
+        'https://www.quora.com/search?q=prompt+engineering+tips+2025',
+
+        // ===== MEDIUM / DEV.TO (sangat relevan untuk niche AI/tech) =====
+        'https://medium.com/search?q=chatgpt+prompt+hacks',
+        'https://medium.com/search?q=prompt+engineering+2025',
+        'https://dev.to/search?q=chatgpt+prompts',
+
+        // ===== DIRECT =====
+        'direct',
+        'direct',
+        'direct',
+
+      ],
+    },
+
+    {
+      name: 'Website 4',
+      targetUrl: 'https://digital-era-brown.vercel.app/',
+      homepageUrl: null,
+      totalVisits: 94,
+      referers: [
+
+        // ===== GOOGLE SEARCH — Digital Era & Tech General =====
+        'https://www.google.com/search?q=digital+era+technology+2025',
+        'https://www.google.com/search?q=latest+technology+trends+2025',
+        'https://www.google.com/search?q=best+tech+news+sites+2025',
+        'https://www.google.com/search?q=digital+transformation+2025',
+        'https://www.google.com/search?q=future+of+technology+2025',
+        'https://www.google.com/search?q=top+tech+innovations+2025',
+        'https://www.google.com/search?q=best+gadgets+2025',
+        'https://www.google.com/search?q=latest+gadgets+and+technology+2025',
+        'https://www.google.com/search?q=digital+lifestyle+tips+2025',
+        'https://www.google.com/search?q=how+technology+is+changing+our+lives',
+        'https://www.google.com/search?q=digital+age+technology+news',
+        'https://www.google.com/search?q=best+smartphones+2025',
+        'https://www.google.com/search?q=ai+technology+trends+2025',
+        'https://www.google.com/search?q=internet+of+things+2025',
+        'https://www.google.com/search?q=cybersecurity+tips+2025',
+        'https://www.google.com/search?q=cloud+computing+trends+2025',
+        'https://www.google.com/search?q=tech+news+today+2025',
+        'https://www.google.com/search?q=digital+marketing+trends+2025',
+        'https://www.google.com/search?q=social+media+trends+2025',
+        'https://www.google.com/search?q=e-commerce+trends+2025',
+        'https://www.google.com/search?q=blockchain+technology+2025',
+        'https://www.google.com/search?q=metaverse+news+2025',
+        'https://www.google.com/search?q=5g+technology+impact+2025',
+        'https://www.google.com/search?q=best+tech+blogs+to+follow+2025',
+        'https://www.google.com/search?q=how+to+stay+updated+with+technology',
+
+        // ===== GOOGLE SEARCH — US Targeted =====
+        'https://www.google.com/search?q=digital+era+technology+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=latest+tech+trends+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=best+gadgets+to+buy+2025&gl=US&hl=en',
+
+        // ===== GOOGLE SEARCH — UK Targeted =====
+        'https://www.google.co.uk/search?q=digital+technology+trends+2025',
+        'https://www.google.co.uk/search?q=best+tech+news+uk+2025',
+        'https://www.google.co.uk/search?q=latest+gadgets+uk+2025',
+
+        // ===== GOOGLE SEARCH — Australia Targeted =====
+        'https://www.google.com.au/search?q=digital+era+technology+2025',
+        'https://www.google.com.au/search?q=tech+trends+australia+2025',
+
+        // ===== GOOGLE SEARCH — Germany Targeted =====
+        'https://www.google.de/search?q=digitale+transformation+2025',
+        'https://www.google.de/search?q=beste+technologie+trends+2025',
+        'https://www.google.de/search?q=neueste+gadgets+2025',
+
+        // ===== GOOGLE SEARCH — France Targeted =====
+        'https://www.google.fr/search?q=tendances+technologiques+2025',
+        'https://www.google.fr/search?q=meilleurs+gadgets+2025',
+        'https://www.google.fr/search?q=transformation+numerique+2025',
+
+        // ===== FACEBOOK GROUPS — Tech & Digital =====
+        'https://www.facebook.com/groups/technologylovers',
+        'https://www.facebook.com/groups/techworld2025',
+        'https://www.facebook.com/groups/digitaltransformation',
+        'https://www.facebook.com/groups/gadgetlovers',
+        'https://www.facebook.com/groups/futuretechnology',
+        'https://www.facebook.com/groups/techentrepreneurs',
+        'https://www.facebook.com/groups/digitalmarketing2025',
+        'https://www.facebook.com/groups/cybersecurityprofessionals',
+        'https://www.facebook.com/groups/artificialintelligenceai',
+        'https://www.facebook.com/groups/techstartups2025',
+        'https://www.facebook.com/groups/digitallifestyle',
+        'https://www.facebook.com/groups/iotcommunity',
+
+        // ===== FACEBOOK MOBILE =====
+        'https://m.facebook.com/groups/technologylovers',
+        'https://m.facebook.com/groups/digitaltransformation',
+        'https://m.facebook.com/',
+        'https://l.facebook.com/',
+
+        // ===== TWITTER / X =====
+        'https://t.co/',
+        'https://x.com/',
+        'https://twitter.com/search?q=%23TechTrends2025',
+        'https://twitter.com/search?q=%23DigitalEra',
+        'https://twitter.com/search?q=%23FutureTech',
+        'https://twitter.com/search?q=%23DigitalTransformation',
+        'https://twitter.com/search?q=%23Gadgets2025',
+        'https://twitter.com/search?q=%23TechNews2025',
+
+        // ===== REDDIT =====
+        'https://www.reddit.com/r/technology/',
+        'https://www.reddit.com/r/gadgets/',
+        'https://www.reddit.com/r/Futurology/',
+        'https://www.reddit.com/r/tech/',
+        'https://www.reddit.com/r/digitalnomad/',
+        'https://www.reddit.com/r/Entrepreneur/',
+        'https://www.reddit.com/r/cybersecurity/',
+
+        // ===== YOUTUBE =====
+        'https://www.youtube.com/results?search_query=technology+trends+2025',
+        'https://www.youtube.com/results?search_query=best+gadgets+2025',
+        'https://www.youtube.com/results?search_query=digital+transformation+explained',
+
+        // ===== PINTEREST =====
+        'https://www.pinterest.com/search/pins/?q=technology+trends+2025',
+        'https://www.pinterest.com/search/pins/?q=digital+lifestyle+2025',
+        'https://www.pinterest.com/search/pins/?q=future+technology+ideas',
+
+        // ===== MEDIUM / DEV.TO =====
+        'https://medium.com/search?q=digital+era+technology',
+        'https://medium.com/search?q=technology+trends+2025',
+        'https://dev.to/search?q=tech+trends+2025',
+
+        // ===== QUORA =====
+        'https://www.quora.com/search?q=technology+trends+2025',
+        'https://www.quora.com/search?q=what+is+digital+transformation',
+        'https://www.quora.com/search?q=best+tech+innovations+2025',
+
+        // ===== TECH NEWS SITES (referral dari portal tech besar) =====
+        'https://techcrunch.com/',
+        'https://www.theverge.com/',
+        'https://www.wired.com/',
+        'https://mashable.com/',
+        'https://gizmodo.com/',
+
+        // ===== DIRECT =====
+        'direct',
+        'direct',
+        'direct',
+
+      ],
+    },
+
+    {
+      name: 'Website 5',
+      targetUrl: 'https://tech-info-zeta.vercel.app/',
+      homepageUrl: null,
+      totalVisits: 152,
+      referers: [
+
+        // ===== GOOGLE SEARCH — Tech Info & Reviews =====
+        'https://www.google.com/search?q=latest+tech+news+today+2025',
+        'https://www.google.com/search?q=tech+information+2025',
+        'https://www.google.com/search?q=best+tech+review+sites+2025',
+        'https://www.google.com/search?q=new+technology+releases+2025',
+        'https://www.google.com/search?q=smartphone+review+2025',
+        'https://www.google.com/search?q=laptop+review+2025+best',
+        'https://www.google.com/search?q=best+laptop+to+buy+2025',
+        'https://www.google.com/search?q=iphone+16+review+2025',
+        'https://www.google.com/search?q=samsung+galaxy+s25+review',
+        'https://www.google.com/search?q=best+android+phone+2025',
+        'https://www.google.com/search?q=apple+vs+samsung+2025',
+        'https://www.google.com/search?q=best+budget+smartphone+2025',
+        'https://www.google.com/search?q=gaming+pc+build+guide+2025',
+        'https://www.google.com/search?q=best+gaming+laptop+2025',
+        'https://www.google.com/search?q=best+wireless+earbuds+2025',
+        'https://www.google.com/search?q=best+smartwatch+2025',
+        'https://www.google.com/search?q=best+wifi+router+2025',
+        'https://www.google.com/search?q=tech+buying+guide+2025',
+        'https://www.google.com/search?q=how+does+5g+work+explained',
+        'https://www.google.com/search?q=what+is+quantum+computing',
+        'https://www.google.com/search?q=how+does+ai+work+explained',
+        'https://www.google.com/search?q=best+vpn+service+2025',
+        'https://www.google.com/search?q=how+to+protect+privacy+online+2025',
+        'https://www.google.com/search?q=best+password+manager+2025',
+        'https://www.google.com/search?q=cloud+storage+comparison+2025',
+
+        // ===== GOOGLE SEARCH — US Targeted =====
+        'https://www.google.com/search?q=latest+tech+news+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=best+smartphone+to+buy+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=tech+reviews+2025&gl=US&hl=en',
+
+        // ===== GOOGLE SEARCH — UK Targeted =====
+        'https://www.google.co.uk/search?q=latest+tech+news+uk+2025',
+        'https://www.google.co.uk/search?q=best+smartphone+uk+2025',
+        'https://www.google.co.uk/search?q=tech+reviews+uk+2025',
+
+        // ===== GOOGLE SEARCH — Australia Targeted =====
+        'https://www.google.com.au/search?q=tech+news+australia+2025',
+        'https://www.google.com.au/search?q=best+smartphone+australia+2025',
+
+        // ===== GOOGLE SEARCH — Germany Targeted =====
+        'https://www.google.de/search?q=technologie+nachrichten+2025',
+        'https://www.google.de/search?q=bestes+smartphone+2025',
+        'https://www.google.de/search?q=technik+test+2025',
+
+        // ===== GOOGLE SEARCH — France Targeted =====
+        'https://www.google.fr/search?q=actualites+technologie+2025',
+        'https://www.google.fr/search?q=meilleur+smartphone+2025',
+        'https://www.google.fr/search?q=test+technologie+2025',
+
+        // ===== FACEBOOK GROUPS — Tech Info & Reviews =====
+        'https://www.facebook.com/groups/technewsdaily',
+        'https://www.facebook.com/groups/smartphonereviewers',
+        'https://www.facebook.com/groups/techreviewcommunity',
+        'https://www.facebook.com/groups/gadgetreviewers2025',
+        'https://www.facebook.com/groups/laptopbuyers',
+        'https://www.facebook.com/groups/androidusers',
+        'https://www.facebook.com/groups/appleusers',
+        'https://www.facebook.com/groups/pcbuilders',
+        'https://www.facebook.com/groups/gamingpcbuilds',
+        'https://www.facebook.com/groups/techdeals2025',
+        'https://www.facebook.com/groups/techinformation',
+        'https://www.facebook.com/groups/gadgetworld2025',
+
+        // ===== FACEBOOK MOBILE =====
+        'https://m.facebook.com/groups/technewsdaily',
+        'https://m.facebook.com/groups/gadgetreviewers2025',
+        'https://m.facebook.com/',
+        'https://l.facebook.com/',
+
+        // ===== TWITTER / X =====
+        'https://t.co/',
+        'https://x.com/',
+        'https://twitter.com/search?q=%23TechNews2025',
+        'https://twitter.com/search?q=%23TechReviews',
+        'https://twitter.com/search?q=%23Gadgets2025',
+        'https://twitter.com/search?q=%23Smartphone2025',
+        'https://twitter.com/search?q=%23TechInfo',
+        'https://twitter.com/search?q=%23TechDeals',
+
+        // ===== REDDIT =====
+        'https://www.reddit.com/r/technology/',
+        'https://www.reddit.com/r/gadgets/',
+        'https://www.reddit.com/r/Android/',
+        'https://www.reddit.com/r/apple/',
+        'https://www.reddit.com/r/pcmasterrace/',
+        'https://www.reddit.com/r/buildapc/',
+        'https://www.reddit.com/r/privacy/',
+        'https://www.reddit.com/r/netsec/',
+
+        // ===== YOUTUBE =====
+        'https://www.youtube.com/results?search_query=best+smartphone+2025+review',
+        'https://www.youtube.com/results?search_query=tech+news+today+2025',
+        'https://www.youtube.com/results?search_query=best+laptop+2025+review',
+        'https://www.youtube.com/results?search_query=iphone+vs+samsung+2025',
+
+        // ===== PINTEREST =====
+        'https://www.pinterest.com/search/pins/?q=tech+gadgets+2025',
+        'https://www.pinterest.com/search/pins/?q=best+smartphones+2025',
+        'https://www.pinterest.com/search/pins/?q=tech+information+2025',
+
+        // ===== MEDIUM / DEV.TO =====
+        'https://medium.com/search?q=tech+news+2025',
+        'https://medium.com/search?q=smartphone+review+2025',
+        'https://dev.to/search?q=tech+review+2025',
+
+        // ===== QUORA =====
+        'https://www.quora.com/search?q=best+smartphone+2025',
+        'https://www.quora.com/search?q=latest+technology+news+2025',
+        'https://www.quora.com/search?q=best+laptop+for+students+2025',
+
+        // ===== TECH NEWS PORTALS =====
+        'https://techcrunch.com/',
+        'https://www.theverge.com/',
+        'https://www.gsmarena.com/',      // ← khusus smartphone reviews
+        'https://www.notebookcheck.net/', // ← khusus laptop reviews
+        'https://arstechnica.com/',
+        'https://www.cnet.com/',          // ← tech info & reviews
+        'https://www.tomshardware.com/',  // ← hardware reviews
+
+        // ===== DIRECT =====
+        'direct',
+        'direct',
+        'direct',
+
+      ],
+    },
+
+    {
+      name: 'Website 6',
+      targetUrl: 'https://smart-ai-orpin.vercel.app/',
+      homepageUrl: null,
+      totalVisits: 177,
+      referers: [
+
+        // ===== GOOGLE SEARCH — Smart AI & AI Tools General =====
+        'https://www.google.com/search?q=best+ai+tools+2025+free',
+        'https://www.google.com/search?q=smart+ai+tools+for+everyday+use',
+        'https://www.google.com/search?q=how+to+use+ai+in+daily+life+2025',
+        'https://www.google.com/search?q=best+free+ai+tools+2025',
+        'https://www.google.com/search?q=ai+tools+for+productivity+2025',
+        'https://www.google.com/search?q=top+ai+apps+2025',
+        'https://www.google.com/search?q=artificial+intelligence+tools+list+2025',
+        'https://www.google.com/search?q=ai+image+generator+free+2025',
+        'https://www.google.com/search?q=ai+video+generator+free+2025',
+        'https://www.google.com/search?q=ai+writing+assistant+free+2025',
+        'https://www.google.com/search?q=best+ai+chatbot+2025',
+        'https://www.google.com/search?q=chatgpt+alternatives+2025',
+        'https://www.google.com/search?q=google+gemini+vs+chatgpt+2025',
+        'https://www.google.com/search?q=claude+ai+review+2025',
+        'https://www.google.com/search?q=perplexity+ai+review+2025',
+        'https://www.google.com/search?q=grok+ai+vs+chatgpt+2025',
+        'https://www.google.com/search?q=ai+automation+tools+2025',
+        'https://www.google.com/search?q=ai+for+small+business+2025',
+        'https://www.google.com/search?q=ai+tools+for+students+2025',
+        'https://www.google.com/search?q=ai+tools+for+content+creators+2025',
+        'https://www.google.com/search?q=machine+learning+for+beginners+2025',
+        'https://www.google.com/search?q=how+does+artificial+intelligence+work',
+        'https://www.google.com/search?q=ai+vs+human+intelligence+2025',
+        'https://www.google.com/search?q=future+of+ai+technology+2025',
+        'https://www.google.com/search?q=ai+replacing+jobs+2025',
+        'https://www.google.com/search?q=smart+home+ai+devices+2025',
+        'https://www.google.com/search?q=best+ai+assistant+2025',
+        'https://www.google.com/search?q=ai+tools+for+designers+2025',
+        'https://www.google.com/search?q=ai+tools+for+developers+2025',
+        'https://www.google.com/search?q=no+code+ai+tools+2025',
+
+        // ===== GOOGLE SEARCH — US Targeted =====
+        'https://www.google.com/search?q=best+ai+tools+2025&gl=US&hl=en',
+        'https://www.google.com/search?q=smart+ai+apps+free&gl=US&hl=en',
+        'https://www.google.com/search?q=artificial+intelligence+2025&gl=US&hl=en',
+
+        // ===== GOOGLE SEARCH — UK Targeted =====
+        'https://www.google.co.uk/search?q=best+ai+tools+uk+2025',
+        'https://www.google.co.uk/search?q=smart+ai+technology+uk',
+        'https://www.google.co.uk/search?q=free+ai+tools+2025+uk',
+
+        // ===== GOOGLE SEARCH — Australia Targeted =====
+        'https://www.google.com.au/search?q=best+ai+tools+australia+2025',
+        'https://www.google.com.au/search?q=smart+ai+apps+2025',
+
+        // ===== GOOGLE SEARCH — Germany Targeted =====
+        'https://www.google.de/search?q=beste+ki+tools+2025',
+        'https://www.google.de/search?q=künstliche+intelligenz+tools+kostenlos',
+        'https://www.google.de/search?q=smart+ai+anwendungen+2025',
+
+        // ===== GOOGLE SEARCH — France Targeted =====
+        'https://www.google.fr/search?q=meilleurs+outils+ia+2025',
+        'https://www.google.fr/search?q=intelligence+artificielle+gratuit+2025',
+        'https://www.google.fr/search?q=outils+ia+productivite+2025',
+
+        // ===== FACEBOOK GROUPS — AI & Smart Technology =====
+        'https://www.facebook.com/groups/artificialintelligenceai',
+        'https://www.facebook.com/groups/aitools2025',
+        'https://www.facebook.com/groups/smartaitechnology',
+        'https://www.facebook.com/groups/machinelearningai',
+        'https://www.facebook.com/groups/deeplearningcommunity',
+        'https://www.facebook.com/groups/chatgptusers',
+        'https://www.facebook.com/groups/aiforeveryone',
+        'https://www.facebook.com/groups/aiforbusiness',
+        'https://www.facebook.com/groups/aicontentcreators',
+        'https://www.facebook.com/groups/smarthomediy',
+        'https://www.facebook.com/groups/futureofai',
+        'https://www.facebook.com/groups/ainewsandtrends',
+
+        // ===== FACEBOOK MOBILE =====
+        'https://m.facebook.com/groups/artificialintelligenceai',
+        'https://m.facebook.com/groups/aitools2025',
+        'https://m.facebook.com/',
+        'https://l.facebook.com/',
+
+        // ===== TWITTER / X =====
+        'https://t.co/',
+        'https://x.com/',
+        'https://twitter.com/search?q=%23ArtificialIntelligence',
+        'https://twitter.com/search?q=%23AITools2025',
+        'https://twitter.com/search?q=%23SmartAI',
+        'https://twitter.com/search?q=%23MachineLearning',
+        'https://twitter.com/search?q=%23AIAutomation',
+        'https://twitter.com/search?q=%23FutureOfAI',
+
+        // ===== REDDIT =====
+        'https://www.reddit.com/r/artificial/',
+        'https://www.reddit.com/r/MachineLearning/',
+        'https://www.reddit.com/r/OpenAI/',
+        'https://www.reddit.com/r/singularity/',
+        'https://www.reddit.com/r/ChatGPT/',
+        'https://www.reddit.com/r/AIAssistants/',
+        'https://www.reddit.com/r/deeplearning/',
+        'https://www.reddit.com/r/learnmachinelearning/',
+
+        // ===== YOUTUBE =====
+        'https://www.youtube.com/results?search_query=best+ai+tools+2025',
+        'https://www.youtube.com/results?search_query=smart+ai+apps+free+2025',
+        'https://www.youtube.com/results?search_query=artificial+intelligence+explained+2025',
+        'https://www.youtube.com/results?search_query=ai+tools+for+productivity+2025',
+
+        // ===== PINTEREST =====
+        'https://www.pinterest.com/search/pins/?q=ai+tools+2025',
+        'https://www.pinterest.com/search/pins/?q=artificial+intelligence+2025',
+        'https://www.pinterest.com/search/pins/?q=smart+technology+2025',
+
+        // ===== MEDIUM / DEV.TO / HASHNODE =====
+        'https://medium.com/search?q=smart+ai+tools+2025',
+        'https://medium.com/search?q=artificial+intelligence+trends+2025',
+        'https://dev.to/search?q=ai+tools+2025',
+        'https://hashnode.com/search?q=ai+tools+2025',
+
+        // ===== QUORA =====
+        'https://www.quora.com/search?q=best+ai+tools+2025',
+        'https://www.quora.com/search?q=how+does+smart+ai+work',
+        'https://www.quora.com/search?q=future+of+artificial+intelligence',
+
+        // ===== AI-SPECIFIC PORTALS =====
+        'https://www.producthunt.com/topics/artificial-intelligence',
+        'https://theresanaiforthat.com/',
+        'https://futuretools.io/',
+        'https://aitools.fyi/',
+
+        // ===== DIRECT =====
+        'direct',
+        'direct',
+        'direct',
+
+      ],
+    },
+
   ],
 
   // Jeda antar website dalam ms (5 detik default)
