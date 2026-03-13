@@ -22,7 +22,25 @@ async function performCookieWarming(page, warmingUrls, cursor) {
 
     console.log(`     -> [Warming] Mengunjungi situs pihak ke-3 (${url})`);
 
+    // === REQUEST INTERCEPTION: Blokir resource berat saat warming untuk hemat bandwidth ===
+    // Resource yang DIBLOKIR: image, media (video/audio), font, stylesheet
+    // Resource yang TETAP DIMUAT: document (HTML), script (JS — penting untuk cookies/session), xhr, fetch
+    const blockedTypes = new Set(['image', 'media', 'font', 'stylesheet']);
+
+    const warmingRequestHandler = (request) => {
+        if (blockedTypes.has(request.resourceType())) {
+            request.abort().catch(() => {});
+        } else {
+            request.continue().catch(() => {});
+        }
+    };
+
     try {
+        // Aktifkan interception HANYA selama warming
+        await page.setRequestInterception(true);
+        page.on('request', warmingRequestHandler);
+        console.log(`     -> [Warming] Request interception aktif — blokir image/media/font/css untuk hemat bandwidth`);
+
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
         // Asumsikan membaca halaman depan bentar
@@ -66,6 +84,12 @@ async function performCookieWarming(page, warmingUrls, cursor) {
         console.log(`     -> [Warming] Selesai mengambil cookie organik dari profil ${domain}.`);
     } catch (err) {
         console.log(`     -> [Warming] Timeout mengunjugi situs pihak ke-3 (skip).`);
+    } finally {
+        // === MATIKAN interception setelah warming selesai ===
+        // KRITIS: Harus dimatikan agar website target bisa memuat semua resource (gambar, CSS, iklan)
+        page.removeListener('request', warmingRequestHandler);
+        await page.setRequestInterception(false).catch(() => {});
+        console.log(`     -> [Warming] Request interception dimatikan — website target akan dimuat penuh`);
     }
 }
 
