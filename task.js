@@ -158,8 +158,16 @@ async function runTask({ page, data }) {
         });
 
         // 4. Inject fingerprint unik
+        // [FIX #4] Teruskan platform dari country profile ke generateFingerprint agar sinkron
         try {
-            const fingerprint = generateFingerprint();
+            const fingerprintOptions = {};
+            if (config.USE_PROXY && selectedCountry) {
+                const countryProfile = getProfileByCountry(selectedCountry);
+                if (countryProfile && countryProfile.platform) {
+                    fingerprintOptions.platform = countryProfile.platform;
+                }
+            }
+            const fingerprint = generateFingerprint(fingerprintOptions);
             await injectFingerprint(page, fingerprint);
         } catch (err) {
             console.warn(`[Visit #${visitId}] Fingerprint warning: ${err.message}`);

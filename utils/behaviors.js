@@ -16,11 +16,11 @@ const { humanDelay } = require('./delay');
 async function performCookieWarming(page, warmingUrls, cursor) {
     if (!warmingUrls || warmingUrls.length === 0) return;
 
-    const url = warmingUrls[Math.floor(Math.random() * warmingUrls.length)];
-    const parsedUrl = new URL(url);
-    const domain = parsedUrl.hostname;
+    // [FIX #3] Pilih 2 URL BERBEDA secara acak (jika tersedia >= 2, ambil 2; jika hanya 1, tetap 1)
+    const shuffled = [...warmingUrls].sort(() => Math.random() - 0.5);
+    const selectedUrls = shuffled.slice(0, Math.min(2, shuffled.length));
 
-    console.log(`     -> [Warming] Mengunjungi situs pihak ke-3 (${url})`);
+    console.log(`     -> [Warming] Akan mengunjungi ${selectedUrls.length} situs pihak ke-3 untuk cookie warming`);
 
     // === REQUEST INTERCEPTION: Blokir resource berat saat warming untuk hemat bandwidth ===
     // Resource yang DIBLOKIR: image, media (video/audio), font, stylesheet
@@ -36,56 +36,63 @@ async function performCookieWarming(page, warmingUrls, cursor) {
     };
 
     try {
-        // Aktifkan interception HANYA selama warming
+        // Aktifkan interception SEKALI untuk SEMUA URL warming
         await page.setRequestInterception(true);
         page.on('request', warmingRequestHandler);
         console.log(`     -> [Warming] Request interception aktif — blokir image/media/font/css untuk hemat bandwidth`);
 
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        // [FIX #3] Jalankan warming untuk setiap URL secara SEQUENTIAL
+        for (let i = 0; i < selectedUrls.length; i++) {
+            const url = selectedUrls[i];
+            const parsedUrl = new URL(url);
+            const domain = parsedUrl.hostname;
 
-        // Asumsikan membaca halaman depan bentar
-        await humanDelay(3000, 8000);
-
-        // Cari link internal di web pihak ketiga (seperti produk Amazon, video Youtube, halaman Wikipedia)
-        const links = await page.$$eval(
-            `a[href^="/"], a[href*="${domain}"]`,
-            elements => elements
-                .map(a => a.href)
-                .filter(href => !href.includes('#') && !href.startsWith('javascript') && !href.startsWith('mailto'))
-        );
-
-        if (links.length > 0) {
-            const randomLink = links[Math.floor(Math.random() * links.length)];
-            console.log(`     -> [Warming] Berinteraksi dengan konten: ${randomLink.substring(0, 60)}...`);
+            console.log(`     -> [Warming ${i + 1}/${selectedUrls.length}] Mengunjungi: ${url}`);
 
             try {
-                // Navigasi ke video/produk/artikel tersebut
-                await page.goto(randomLink, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-                // Simulasi durasi menonton video atau membaca deskripsi produk (15 - 30 detik)
-                await humanDelay(15000, 30000);
-
-                // Scroll natural kebawah buat baca komentar / deskripsi 
-                await page.evaluate(() => {
-                    const scrollAmount = Math.floor(Math.random() * 800) + 300;
-                    window.scrollBy({ top: scrollAmount, left: 0, behavior: 'smooth' });
-                });
+                // Asumsikan membaca halaman depan bentar
                 await humanDelay(3000, 8000);
 
-            } catch (innerErr) {
-                // Abaikan error navigasi internal warming
-            }
-        } else {
-            // Jika aneh ngga nemu link, cukup scroll di beranda aja
-            await page.evaluate(() => window.scrollBy(0, window.innerHeight / 2));
-            await humanDelay(10000, 20000);
-        }
+                // Cari link internal di web pihak ketiga
+                const links = await page.$$eval(
+                    `a[href^="/"], a[href*="${domain}"]`,
+                    elements => elements
+                        .map(a => a.href)
+                        .filter(href => !href.includes('#') && !href.startsWith('javascript') && !href.startsWith('mailto'))
+                );
 
-        console.log(`     -> [Warming] Selesai mengambil cookie organik dari profil ${domain}.`);
+                if (links.length > 0) {
+                    const randomLink = links[Math.floor(Math.random() * links.length)];
+                    console.log(`     -> [Warming ${i + 1}] Berinteraksi dengan konten: ${randomLink.substring(0, 60)}...`);
+
+                    try {
+                        await page.goto(randomLink, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        await humanDelay(15000, 30000);
+
+                        await page.evaluate(() => {
+                            const scrollAmount = Math.floor(Math.random() * 800) + 300;
+                            window.scrollBy({ top: scrollAmount, left: 0, behavior: 'smooth' });
+                        });
+                        await humanDelay(3000, 8000);
+                    } catch (innerErr) {
+                        // Abaikan error navigasi internal warming
+                    }
+                } else {
+                    await page.evaluate(() => window.scrollBy(0, window.innerHeight / 2));
+                    await humanDelay(10000, 20000);
+                }
+
+                console.log(`     -> [Warming ${i + 1}] Selesai mengambil cookie organik dari profil ${domain}.`);
+            } catch (err) {
+                console.log(`     -> [Warming ${i + 1}] Timeout mengunjungi ${domain} (skip).`);
+            }
+        }
     } catch (err) {
-        console.log(`     -> [Warming] Timeout mengunjugi situs pihak ke-3 (skip).`);
+        console.log(`     -> [Warming] Error saat setup warming: ${err.message}`);
     } finally {
-        // === MATIKAN interception setelah warming selesai ===
+        // === MATIKAN interception setelah SEMUA URL warming selesai ===
         // KRITIS: Harus dimatikan agar website target bisa memuat semua resource (gambar, CSS, iklan)
         page.removeListener('request', warmingRequestHandler);
         await page.setRequestInterception(false).catch(() => {});
@@ -183,8 +190,13 @@ async function simulateMicroTyping(page, cursor) {
         // Pindah wajar ke input box
         await cursor.click(targetInput);
 
-        // Kata-kata ragu random
-        const typoWords = ['cari apaan', 'harga m', 'how to ', 'tes tes', 'batal ah'];
+        // [FIX #2] Kata-kata ragu random dalam Bahasa Inggris (sesuai traffic Tier 1: US, GB, CA, AU)
+        const typoWords = [
+            'how to ', 'best ', 'what is ', 'where to find ',
+            'top 10 ', 'free ', 'download ', 'review ',
+            'vs ', 'price of ', 'near me', 'online free',
+            'is it worth', 'alternatives to '
+        ];
         const word = typoWords[Math.floor(Math.random() * typoWords.length)];
 
         // Ketik human like: delay per keystroke bisa ngelag pelan banget (100 - 450ms pr char)
