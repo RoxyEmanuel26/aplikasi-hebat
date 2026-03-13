@@ -129,21 +129,140 @@ module.exports = {
       name: 'Website 1',
       targetUrl: 'https://roxynime.vercel.app',
       homepageUrl: 'https://roxy.my.id',
-      totalVisits: 200,
-      referers: null, // null = pakai REFERERS dari config utama
+      totalVisits: 241,
+      referers: [
+
+        // ===== GOOGLE SEARCH — General Anime (English) =====
+        'https://www.google.com/search?q=watch+anime+online+free',
+        'https://www.google.com/search?q=best+anime+to+watch+2025',
+        'https://www.google.com/search?q=anime+streaming+free+english+sub',
+        'https://www.google.com/search?q=best+anime+site+2025',
+        'https://www.google.com/search?q=one+piece+episode+latest+english+sub',
+        'https://www.google.com/search?q=demon+slayer+season+4+english+sub',
+        'https://www.google.com/search?q=jujutsu+kaisen+new+episode',
+        'https://www.google.com/search?q=blue+lock+season+2+english+sub',
+        'https://www.google.com/search?q=attack+on+titan+full+series+sub',
+        'https://www.google.com/search?q=naruto+shippuden+all+episodes+sub',
+        'https://www.google.com/search?q=sword+art+online+english+sub',
+        'https://www.google.com/search?q=fairy+tail+complete+english+sub',
+        'https://www.google.com/search?q=dr+stone+english+sub',
+        'https://www.google.com/search?q=solo+leveling+anime+english+sub',
+        'https://www.google.com/search?q=free+anime+streaming+no+account',
+        'https://www.google.com/search?q=anime+like+attack+on+titan',
+        'https://www.google.com/search?q=anime+like+naruto+recommendations',
+        'https://www.google.com/search?q=top+anime+2025+myanimelist',
+        'https://www.google.com/search?q=anime+spring+2025+schedule',
+        'https://www.google.com/search?q=anime+winter+2025+best+picks',
+        'https://www.google.com/search?q=best+isekai+anime+2025',
+        'https://www.google.com/search?q=best+action+anime+all+time',
+        'https://www.google.com/search?q=best+romance+anime+2025',
+        'https://www.google.com/search?q=completed+anime+series+2025',
+        'https://www.google.com/search?q=anime+batch+download+english+sub',
+        'https://www.google.com/search?q=watch+one+piece+online+free',
+        'https://www.google.com/search?q=where+to+watch+anime+for+free',
+        'https://www.google.com/search?q=anime+streaming+site+no+ads',
+        'https://www.google.com/search?q=watch+demon+slayer+online+free',
+        'https://www.google.com/search?q=anime+ongoing+2025+english+sub',
+
+        // ===== GOOGLE SEARCH — US Targeted =====
+        'https://www.google.com/search?q=watch+anime+online+free&gl=US&hl=en',
+        'https://www.google.com/search?q=best+free+anime+streaming+site&gl=US&hl=en',
+        'https://www.google.com/search?q=one+piece+latest+episode&gl=US&hl=en',
+        'https://www.google.com/search?q=jujutsu+kaisen+season+3&gl=US&hl=en',
+        'https://www.google.com/search?q=anime+recommendations+2025&gl=US&hl=en',
+
+        // ===== GOOGLE SEARCH — UK Targeted =====
+        'https://www.google.co.uk/search?q=watch+anime+online+free',
+        'https://www.google.co.uk/search?q=best+anime+streaming+uk+2025',
+        'https://www.google.co.uk/search?q=one+piece+english+sub+online',
+
+        // ===== GOOGLE SEARCH — Australia Targeted =====
+        'https://www.google.com.au/search?q=watch+anime+online+free',
+        'https://www.google.com.au/search?q=best+anime+site+australia+2025',
+        'https://www.google.com.au/search?q=anime+streaming+free+australia',
+
+        // ===== GOOGLE SEARCH — Germany Targeted =====
+        'https://www.google.de/search?q=anime+online+schauen+kostenlos',
+        'https://www.google.de/search?q=beste+anime+serien+2025',
+        'https://www.google.de/search?q=one+piece+deutsch+sub',
+
+        // ===== GOOGLE SEARCH — France Targeted =====
+        'https://www.google.fr/search?q=regarder+anime+gratuitement',
+        'https://www.google.fr/search?q=meilleur+site+anime+2025',
+        'https://www.google.fr/search?q=one+piece+vostfr+gratuit',
+
+        // ===== FACEBOOK GROUPS — Anime International =====
+        'https://www.facebook.com/groups/660063567459906',
+        'https://www.facebook.com/groups/animelovers.worldwide',
+        'https://www.facebook.com/groups/animefansworld',
+        'https://www.facebook.com/groups/onepiecefans',
+        'https://www.facebook.com/groups/narutoshipuddenfans',
+        'https://www.facebook.com/groups/demonslayerfans',
+        'https://www.facebook.com/groups/jujutsukaisenfanclub',
+        'https://www.facebook.com/groups/attackontitanfans',
+        'https://www.facebook.com/groups/animerecommendations',
+        'https://www.facebook.com/groups/animewatchclub',
+        'https://www.facebook.com/groups/animeseason2025',
+        'https://www.facebook.com/groups/bestanime2025',
+
+        // ===== FACEBOOK MOBILE =====
+        'https://m.facebook.com/groups/660063567459906',
+        'https://m.facebook.com/groups/animelovers.worldwide',
+        'https://m.facebook.com/',
+        'https://l.facebook.com/',
+
+        // ===== TWITTER / X =====
+        'https://t.co/',
+        'https://x.com/',
+        'https://twitter.com/search?q=%23anime2025',
+        'https://twitter.com/search?q=%23OnePiece',
+        'https://twitter.com/search?q=%23JujutsuKaisen',
+        'https://twitter.com/search?q=%23DemonSlayer',
+        'https://twitter.com/search?q=%23AnimeRecommendations',
+
+        // ===== REDDIT =====
+        'https://www.reddit.com/r/anime/',
+        'https://www.reddit.com/r/anime/comments/best_anime_2025',
+        'https://www.reddit.com/r/OnePiece/',
+        'https://www.reddit.com/r/DemonSlayerAnime/',
+        'https://www.reddit.com/r/JuJutsuKaisen/',
+        'https://www.reddit.com/r/Naruto/',
+        'https://www.reddit.com/r/attackontitan/',
+        'https://www.reddit.com/r/soloLeveling/',
+
+        // ===== MYANIMELIST =====
+        'https://myanimelist.net/anime/season',
+        'https://myanimelist.net/topanime.php',
+        'https://myanimelist.net/anime/21/One_Piece',
+        'https://myanimelist.net/recommendations/anime',
+        'https://myanimelist.net/forum/',
+
+        // ===== TELEGRAM =====
+        'https://t.me/animeenglishsub',
+        'https://t.me/animeworldofficial',
+        'https://t.me/onepiece_english',
+        'https://t.me/animelovers_global',
+        'https://t.me/animedaily2025',
+
+        // ===== DIRECT =====
+        'direct',
+        'direct',
+        'direct',
+
+      ], // null = pakai REFERERS dari config utama
     },
     {
       name: 'Website 2',
       targetUrl: 'https://website2.com',
       homepageUrl: 'https://website2.com',
-      totalVisits: 150,
+      totalVisits: 163,
       referers: null,
     },
     {
       name: 'Website 3',
       targetUrl: 'https://website3.com',
       homepageUrl: null,
-      totalVisits: 100,
+      totalVisits: 112,
       referers: [
         'https://www.google.com/search?q=website3',
         'direct'

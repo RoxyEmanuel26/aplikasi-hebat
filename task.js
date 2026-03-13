@@ -27,18 +27,19 @@ let createCursor;
 /**
  * Safety net: Tutup semua tab "bocor" yang bukan tab task aktif.
  * Ini mencegah RAM penuh akibat tab iklan yang lolos dari popunderHandler.
+ * [FIX BUG #3] Menerima targetUrl dan homepageUrl sebagai parameter, bukan dari config
  */
-async function closeLeakedTabs(page, config) {
+async function closeLeakedTabs(page, targetUrl, homepageUrl) {
     try {
         const browser = page.browser();
         const allPages = await browser.pages();
         for (const tab of allPages) {
             if (tab === page || tab.isClosed()) continue;
             const tabUrl = tab.url();
-            // Tutup tab yang bukan tab task aktif dan bukan halaman internal
+            // [FIX BUG #3] Gunakan targetUrl dan homepageUrl dari parameter
             if (
-                tabUrl !== config.TARGET_URL &&
-                (!config.HOMEPAGE_URL || tabUrl !== config.HOMEPAGE_URL) &&
+                tabUrl !== targetUrl &&
+                (!homepageUrl || tabUrl !== homepageUrl) &&
                 !tabUrl.startsWith('chrome') &&
                 !tabUrl.startsWith('about:') &&
                 tabUrl !== '' &&
@@ -58,7 +59,12 @@ async function closeLeakedTabs(page, config) {
  * @param {object} params.data - Data task (visitId, proxyTarget)
  */
 async function runTask({ page, data }) {
-    const { visitId, proxyTarget } = data;
+    // [FIX BUG #1 + #2] Destructure targetUrl, homepageUrl, dan activeReferers dari data
+    const { visitId, proxyTarget, targetUrl, homepageUrl, activeReferers } = data;
+    // Fallback ke config global jika tidak ada (backward compatible untuk mode lama)
+    const siteTargetUrl = targetUrl || config.TARGET_URL;
+    const siteHomepageUrl = homepageUrl || config.HOMEPAGE_URL;
+    const siteReferers = activeReferers || config.REFERERS;
     const startTime = Date.now();
     let responseTime = 0;
     let status = 'OK';
@@ -174,8 +180,9 @@ async function runTask({ page, data }) {
             console.warn(`[Visit #${visitId}] Timezone warning: ${err.message}`);
         }
 
-        // 7. Set Referer header dari list acak di config
-        const selectedReferer = config.REFERERS[Math.floor(Math.random() * config.REFERERS.length)];
+        // 7. Set Referer header dari list acak
+        // [FIX BUG #1] Gunakan siteReferers (dari data per-website), bukan config.REFERERS
+        const selectedReferer = siteReferers[Math.floor(Math.random() * siteReferers.length)];
         const headersToSet = {
             'Accept-Language': tzInfo.acceptLanguage,
         };
@@ -213,7 +220,8 @@ async function runTask({ page, data }) {
         await loadSession(page, proxyTarget.host, proxyTarget.port, config);
 
         // 11. Navigasi ke target
-        await page.goto(config.HOMEPAGE_URL || config.TARGET_URL, {
+        // [FIX BUG #2] Gunakan siteHomepageUrl / siteTargetUrl dari data per-website
+        await page.goto(siteHomepageUrl || siteTargetUrl, {
             waitUntil: 'domcontentloaded',
             timeout: 25000,
         });
@@ -239,9 +247,10 @@ async function runTask({ page, data }) {
         await humanDelay();
 
         // 17. Jika HOMEPAGE_URL diset, lakukan Internal Routing page views sebelum klik iklan
-        if (config.HOMEPAGE_URL && config.HOMEPAGE_URL !== config.TARGET_URL) {
+        // [FIX BUG #2] Gunakan siteHomepageUrl dan siteTargetUrl dari data per-website
+        if (siteHomepageUrl && siteHomepageUrl !== siteTargetUrl) {
             // Coba klik internal link (halaman kedua)
-            const clickedInternal = await clickInternalLink(page, cursor, new URL(config.HOMEPAGE_URL).hostname);
+            const clickedInternal = await clickInternalLink(page, cursor, new URL(siteHomepageUrl).hostname);
 
             if (clickedInternal) {
                 await humanDelay(3000, 8000); // baca bentar
@@ -249,7 +258,7 @@ async function runTask({ page, data }) {
             }
 
             // Lanjut ke TARGET_URL final
-            await page.goto(config.TARGET_URL, {
+            await page.goto(siteTargetUrl, {
                 waitUntil: 'domcontentloaded',
                 timeout: 25000,
             });
@@ -362,7 +371,8 @@ async function runTask({ page, data }) {
         }
 
         // Sapu bersih tab bocor sebelum exit
-        await closeLeakedTabs(page, config);
+        // [FIX BUG #3] Teruskan siteTargetUrl dan siteHomepageUrl
+        await closeLeakedTabs(page, siteTargetUrl, siteHomepageUrl);
 
         // Exit behavior realistis
         const rand = Math.random();
@@ -412,7 +422,8 @@ async function runTask({ page, data }) {
         responseTime = Date.now() - startTime;
     } finally {
         // Sapu bersih tab bocor terakhir kali
-        await closeLeakedTabs(page, config);
+        // [FIX BUG #3] Teruskan siteTargetUrl dan siteHomepageUrl
+        await closeLeakedTabs(page, siteTargetUrl, siteHomepageUrl);
 
         // Simpan session sebelum cleanup
         try {

@@ -154,7 +154,15 @@ async function runWebsite(siteConfig) {
             const visitDelay = getVisitDelay(config);
             await new Promise(r => setTimeout(r, visitDelay));
 
-            cluster.queue({ visitId: i, proxyTarget });
+            // [FIX BUG #1 + #2] Sertakan targetUrl, homepageUrl, dan activeReferers per-site
+            const activeReferers = siteConfig.referers || config.REFERERS;
+            cluster.queue({
+                visitId: i,
+                proxyTarget,
+                targetUrl: config.TARGET_URL,        // [FIX BUG #2] URL target website aktif
+                homepageUrl: config.HOMEPAGE_URL,     // [FIX BUG #2] Homepage website aktif
+                activeReferers,                       // [FIX BUG #1] Referer list website aktif
+            });
         }
 
         // Tunggu semua selesai
