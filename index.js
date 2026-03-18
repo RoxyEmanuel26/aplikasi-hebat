@@ -198,7 +198,9 @@ async function main() {
     console.log('');
 
     // ========== 1. Startup Check ==========
-    if (config.USE_PROXY) {
+    const provider = config.PROXY_PROVIDER || 'none';
+
+    if (provider === 'evomi') {
         // Validasi kredensial Evomi sudah diisi
         if (!config.EVOMI_USERNAME || config.EVOMI_USERNAME === 'YOUR_EVOMI_USERNAME' ||
             !config.EVOMI_PASSWORD || config.EVOMI_PASSWORD === 'YOUR_EVOMI_PASSWORD') {
@@ -208,10 +210,23 @@ async function main() {
             process.exit(1);
         }
 
-        console.log(`[Evomi] Proxy aktif — ${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`);
-        console.log(`[Evomi] Session: ${config.EVOMI_SESSION_TYPE} | Countries: ${config.EVOMI_COUNTRIES.join(', ')}`);
+        console.log(`[Proxy] Provider: EVOMI — ${config.EVOMI_ENDPOINT}:${config.EVOMI_PORT}`);
+        console.log(`[Proxy] Session: ${config.EVOMI_SESSION_TYPE} | Countries: ${config.EVOMI_COUNTRIES.join(', ')}`);
+
+    } else if (provider === '9proxy') {
+        // Validasi 9Proxy bisa dihubungi
+        console.log(`[Proxy] Provider: 9PROXY — API: ${config.NINEPROXY_API_URL}`);
+        try {
+            const { checkNineProxyAPI } = require('./proxy/proxyManager');
+            await checkNineProxyAPI();
+            console.log('[Proxy] 9Proxy API aktif dan merespons.');
+        } catch (err) {
+            console.error(`[Fatal Error] ${err.message}`);
+            process.exit(1);
+        }
+
     } else {
-        console.log('[Bot Starting] USE_PROXY = false — Berjalan tanpa proxy (Testing Mode)');
+        console.log('[Proxy] Provider: NONE — Berjalan tanpa proxy (Testing Mode)');
     }
 
     // ========== 2. Pasang Plugin Anti-Detection ==========

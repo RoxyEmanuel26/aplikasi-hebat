@@ -4,6 +4,7 @@
  */
 
 const { humanDelay } = require('./delay');
+const config = require('../config');
 
 /**
  * Cookie Warming: Singgah ke domain besar (Google, Wiki, dll) untuk build riwayat cookie pihak ketiga
@@ -35,11 +36,17 @@ async function performCookieWarming(page, warmingUrls, cursor) {
         }
     };
 
+    const bandwidthSaver = config.WARMING_BANDWIDTH_SAVER !== false;
+
     try {
-        // Aktifkan interception SEKALI untuk SEMUA URL warming
-        await page.setRequestInterception(true);
-        page.on('request', warmingRequestHandler);
-        console.log(`     -> [Warming] Request interception aktif — blokir image/media/font/css untuk hemat bandwidth`);
+        // Aktifkan interception HANYA jika WARMING_BANDWIDTH_SAVER aktif
+        if (bandwidthSaver) {
+            await page.setRequestInterception(true);
+            page.on('request', warmingRequestHandler);
+            console.log(`     -> [Warming] Request interception aktif — blokir image/media/font/css untuk hemat bandwidth`);
+        } else {
+            console.log(`     -> [Warming] Bandwidth saver OFF — semua resource dimuat normal`);
+        }
 
         // [FIX #3] Jalankan warming untuk setiap URL secara SEQUENTIAL
         for (let i = 0; i < selectedUrls.length; i++) {
@@ -94,9 +101,11 @@ async function performCookieWarming(page, warmingUrls, cursor) {
     } finally {
         // === MATIKAN interception setelah SEMUA URL warming selesai ===
         // KRITIS: Harus dimatikan agar website target bisa memuat semua resource (gambar, CSS, iklan)
-        page.removeListener('request', warmingRequestHandler);
-        await page.setRequestInterception(false).catch(() => {});
-        console.log(`     -> [Warming] Request interception dimatikan — website target akan dimuat penuh`);
+        if (bandwidthSaver) {
+            page.removeListener('request', warmingRequestHandler);
+            await page.setRequestInterception(false).catch(() => {});
+            console.log(`     -> [Warming] Request interception dimatikan — website target akan dimuat penuh`);
+        }
     }
 }
 
@@ -233,16 +242,16 @@ async function applyReadingPacing(distribution) {
     let label = '';
 
     if (decider < distribution.skimmer) {
-        // Skimmer: Cabut ngebut (5s - 15s)
-        waitTime = Math.floor(Math.random() * 10000) + 5000;
+        // Skimmer: Cabut ngebut (10s - 25s)
+        waitTime = Math.floor(Math.random() * 15000) + 10000;
         label = 'Skimmer';
     } else if (decider < (distribution.skimmer + distribution.average)) {
-        // Average: Baca biasa (20s - 60s)
-        waitTime = Math.floor(Math.random() * 40000) + 20000;
+        // Average: Baca biasa (30s - 80s)
+        waitTime = Math.floor(Math.random() * 50000) + 30000;
         label = 'Average Reader';
     } else {
-        // Slow: Diam di web lama (60s - 150s)
-        waitTime = Math.floor(Math.random() * 90000) + 60000;
+        // Slow: Diam di web lama (90s - 210s)
+        waitTime = Math.floor(Math.random() * 120000) + 90000;
         label = 'Slow Reader';
     }
 

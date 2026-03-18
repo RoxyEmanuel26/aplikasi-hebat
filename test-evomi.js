@@ -116,7 +116,7 @@ async function testEvomiProxy() {
     console.log('proxy Evomi sudah siap digunakan.');
     console.log('');
     console.log('Langkah selanjutnya:');
-    console.log('1. Set USE_PROXY = true di config.js');
+    console.log('1. Set PROXY_PROVIDER = \'evomi\' di config.js');
     console.log('2. Jalankan: node index.js');
     console.log('');
 }

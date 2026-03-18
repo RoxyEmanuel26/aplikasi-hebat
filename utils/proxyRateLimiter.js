@@ -8,13 +8,14 @@
  */
 
 const config = require('../config');
+const { isProxyEnabled, isEvomi } = require('../proxy/proxyManager');
 
 // Map untuk menyimpan state penggunaan per proxy
 const proxyUsageMap = new Map();
 
 /**
  * Tentukan key rate limiter yang tepat.
- * Jika USE_PROXY + Evomi (single endpoint), gunakan visitId.
+ * Jika Evomi (single endpoint), gunakan visitId.
  * Jika multi-host atau no-proxy, gunakan host:port.
  * @param {string} proxyHost
  * @param {string} proxyPort
@@ -22,7 +23,7 @@ const proxyUsageMap = new Map();
  * @returns {string}
  */
 function getRateLimitKey(proxyHost, proxyPort, visitId) {
-    if (config.USE_PROXY && visitId != null) {
+    if (isEvomi() && visitId != null) {
         // Evomi: setiap visitId = IP unik, key per visit
         return `visit-${visitId}`;
     }
@@ -57,9 +58,9 @@ function canUseProxy(proxyHost, proxyPort, config, visitId = null) {
  * @param {number|string|null} visitId
  */
 async function waitForProxy(proxyHost, proxyPort, config, visitId = null) {
-    // Jika VISITS_PER_IP === 1 dan USE_PROXY aktif (Evomi mode),
+    // Jika VISITS_PER_IP === 1 dan provider Evomi aktif,
     // setiap visit = IP baru, tidak perlu delay antar visit
-    if (config.USE_PROXY && config.VISITS_PER_IP === 1) {
+    if (isEvomi() && config.VISITS_PER_IP === 1) {
         return;
     }
 

@@ -13,7 +13,7 @@ const { generateFingerprint, injectFingerprint } = require('./anti-detect/finger
 const { spoofCanvasWebGLAudio } = require('./anti-detect/canvas');
 const { randomTimezone, injectTimezone, setAcceptLanguage } = require('./anti-detect/timezone');
 const { injectCookies } = require('./anti-detect/cookies');
-const { getEvomiAuth } = require('./proxy/proxyManager');
+const { getProxyAuth, isProxyEnabled, isEvomi, isNineProxy } = require('./proxy/proxyManager');
 const { getProfileByCountry, getRandomCountry } = require('./profiles');
 const { performCookieWarming, simulateReading, clickInternalLink, simulateMicroTyping, applyReadingPacing } = require('./utils/behaviors');
 const { createPopunderHandler, removePopunderHandler } = require('./utils/popunderHandler');
@@ -71,9 +71,9 @@ async function runTask({ page, data }) {
     let errorMsg = '';
     let exitType = 'normal';
 
-    // Device profile: sinkronisasi dengan country Evomi jika USE_PROXY aktif
+    // Device profile: sinkronisasi dengan country Evomi jika provider = evomi
     let viewport, tzInfo, selectedCountry;
-    if (config.USE_PROXY && config.EVOMI_COUNTRIES && config.EVOMI_COUNTRIES.length > 0) {
+    if (isEvomi() && config.EVOMI_COUNTRIES && config.EVOMI_COUNTRIES.length > 0) {
         // Pilih country acak dan ambil profil yang cocok
         selectedCountry = getRandomCountry(config.EVOMI_COUNTRIES);
         const countryProfile = getProfileByCountry(selectedCountry);
@@ -86,10 +86,13 @@ async function runTask({ page, data }) {
         };
         tzInfo = { timezone: countryProfile.timezone, acceptLanguage: countryProfile.language };
         console.log(`     -> [Evomi] Country: ${selectedCountry} | TZ: ${countryProfile.timezone} | ${countryProfile.screen.label}`);
-    } else if (config.USE_CONSISTENT_DEVICE_PROFILE) {
+    } else if (isProxyEnabled() && config.USE_CONSISTENT_DEVICE_PROFILE) {
         const profile = getOrCreateDeviceProfile(proxyTarget.host, proxyTarget.port, config);
         viewport = profile.viewport;
         tzInfo = { timezone: profile.timezone, acceptLanguage: profile.acceptLanguage };
+    } else if (config.USE_CONSISTENT_DEVICE_PROFILE && !isProxyEnabled()) {
+        viewport = randomViewport();
+        tzInfo = randomTimezone();
     } else {
         viewport = randomViewport();
         tzInfo = randomTimezone();
@@ -119,17 +122,22 @@ async function runTask({ page, data }) {
             }
         } catch (_) { /* ignore */ }
 
-        // 1. Authenticate proxy Evomi (WAJIB SEBELUM page.goto)
-        if (config.USE_PROXY) {
+        // 1. Authenticate proxy (WAJIB SEBELUM page.goto)
+        if (isProxyEnabled()) {
             try {
-                const evomiAuth = getEvomiAuth(visitId);
-                await page.authenticate({
-                    username: evomiAuth.username,
-                    password: evomiAuth.password,
-                });
-                console.log(`[Visit #${visitId}] Evomi auth OK — country: ${evomiAuth.country}`);
+                const proxyAuth = getProxyAuth(visitId);
+                if (proxyAuth) {
+                    await page.authenticate({
+                        username: proxyAuth.username,
+                        password: proxyAuth.password,
+                    });
+                    const providerLabel = isEvomi() ? `Evomi — country: ${proxyAuth.country}` : '9Proxy';
+                    console.log(`[Visit #${visitId}] Proxy auth OK — ${providerLabel}`);
+                } else {
+                    console.log(`[Visit #${visitId}] 9Proxy tanpa autentikasi — langsung konek`);
+                }
             } catch (err) {
-                console.warn(`[Visit #${visitId}] Evomi auth failed: ${err.message}. Skipping task.`);
+                console.warn(`[Visit #${visitId}] Proxy auth failed: ${err.message}. Skipping task.`);
                 throw new Error('Proxy Authentication Failed');
             }
         } else {
@@ -161,7 +169,7 @@ async function runTask({ page, data }) {
         // [FIX #4] Teruskan platform dari country profile ke generateFingerprint agar sinkron
         try {
             const fingerprintOptions = {};
-            if (config.USE_PROXY && selectedCountry) {
+            if (isEvomi() && selectedCountry) {
                 const countryProfile = getProfileByCountry(selectedCountry);
                 if (countryProfile && countryProfile.platform) {
                     fingerprintOptions.platform = countryProfile.platform;
@@ -276,6 +284,8 @@ async function runTask({ page, data }) {
         // 18. Phase 4: Terapkan dynamic reading pacing sblm interaksi click banner
         await applyReadingPacing(config.READING_PACE_DISTRIBUTION);
 
+        // ========== BANNER DETECTION & CLICK ==========
+        if (config.BANNER_ENABLED) {
         // Paksa viewport desktop sementara agar banner muncul (hidden lg:flex fix)
         const currentViewport = page.viewport();
         const isMobileViewport = currentViewport && currentViewport.width < 1024;
@@ -365,6 +375,10 @@ async function runTask({ page, data }) {
         // Kembalikan viewport ke mobile setelah urusan klik banner selesai
         if (isMobileViewport && currentViewport) {
             await page.setViewport(currentViewport).catch(() => { });
+        }
+        } else {
+            // Banner disabled — hanya pakai Popunder / SocialBar
+            console.log(`     -> [ACTION] Visit #${visitId} Impression Organik (Banner disabled, Popunder/SocialBar only)`);
         }
 
         // 21. Tunggu popunder selesai diproses (beri waktu handler menyelesaikan simulasi)

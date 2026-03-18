@@ -16,12 +16,17 @@ module.exports = {
   // Total kunjungan yang ingin disimulasikan
   TOTAL_VISITS: 10,
 
+  // ========== PROXY PROVIDER ==========
+  // Pilih provider proxy yang aktif:
+  // 'evomi'  → Evomi Residential Core (rotating residential, 1 endpoint + auth per session)
+  // '9proxy' → 9Proxy Local App (fetch proxy list dari API lokal)
+  // 'none'   → Tanpa proxy (IP asli, untuk testing)
+  PROXY_PROVIDER: 'evomi',
+
   // ========== EVOMI PROXY CONFIG ==========
-  // Kredensial Evomi Residential Core
+  // (Hanya dipakai jika PROXY_PROVIDER = 'evomi')
   EVOMI_USERNAME: '',
   EVOMI_PASSWORD: '',
-
-  // Endpoint dan port Evomi
   EVOMI_ENDPOINT: 'rp.evomi.com',
   EVOMI_PORT: 1001,  // HTTP: 1000 | HTTPS: 1001 | SOCKS5: 1002
 
@@ -30,13 +35,29 @@ module.exports = {
   // 'hardsession' → IP tetap selama satu sesi penuh
   EVOMI_SESSION_TYPE: 'session',
 
-  // Lifetime IP dalam menit (hanya untuk tipe 'session', null = default)
-  // Contoh: 40 = IP bertahan 40 menit, max 120
+  // Lifetime IP dalam menit (hanya untuk tipe 'session', null = default, max 120)
   EVOMI_LIFETIME: 20,
 
-  // Daftar negara yang akan di-rotate acak setiap sesi
-  // Prioritaskan Tier 1 untuk CPM Adsterra tertinggi
+  // Daftar negara yang akan di-rotate acak setiap sesi (Tier 1 = CPM tertinggi)
   EVOMI_COUNTRIES: ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'SG', 'JP'],
+
+  // ========== 9PROXY CONFIG ==========
+  // (Hanya dipakai jika PROXY_PROVIDER = '9proxy')
+  // URL API lokal 9Proxy untuk fetch daftar proxy hari ini
+  NINEPROXY_API_URL: 'http://127.0.0.1:10101/api/today_list?t=2&limit=50&today',
+
+  // Port lokal aplikasi 9Proxy
+  NINEPROXY_API_PORT: 10101,
+
+  // Host lokal untuk proxy
+  NINEPROXY_LOCAL_HOST: '127.0.0.1',
+
+  // Authentication proxy 9Proxy (kosongkan jika tidak perlu)
+  NINEPROXY_USERNAME: '',
+  NINEPROXY_PASSWORD: '',
+
+  // Maksimal proxy yang diambil per request API
+  NINEPROXY_LIMIT: 50,
 
   // true untuk production (tanpa GUI), false untuk debugging (tampilkan browser)
   HEADLESS: false,
@@ -97,11 +118,6 @@ module.exports = {
   POPUNDER_MAX_TABS: 5,
 
   // ========== MODE CONFIG ==========
-  // Gunakan proxy Evomi Residential Core?
-  // false = jalankan tanpa proxy (mode testing gratis, IP asli)
-  // true  = gunakan proxy Evomi (mode production, IP global)
-  USE_PROXY: true,
-
   // Mode testing ringan
   // true  = paksa TOTAL_VISITS rendah, HEADLESS: false, CTR_TARGET: 1.0
   // false = gunakan nilai config normal
